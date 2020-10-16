@@ -14,76 +14,14 @@ library(ggplot2)
 library(readxl)
 library(janitor)
 
-juvenile_stats_2014 <- read_excel("Juvenile_stats_2014.xlsx") %>%
-  clean_names() %>% 
-  select(!total) %>%
-  mutate(year = 2014)
+juvenile_6_years <- readRDS(file = "data/juvenile_6_years.rds")
+juvenile_stats_2014<- readRDS("data/juvenile_stats_2014.rds")
 
-juvenile_stats_2015 <- read_excel("Juvenile_stats_2015.xlsx") %>%
-  clean_names() %>% 
-  select(!grand_total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2015)
-
-juvenile_stats_2016 <- read_excel("Juvenile_stats_2016.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2016) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2017 <- read_excel("Juvenile_stats_2017.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2018 <- read_excel("Juvenile_stats_2018.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2018) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2019 <- read_excel("Juvenile_stats_2019.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2019) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_6_years <- 
-  bind_rows(list(juvenile_stats_2014, juvenile_stats_2015,
-                 juvenile_stats_2016, juvenile_stats_2017,
-                 juvenile_stats_2018, juvenile_stats_2019),
-            .id = "year") %>% 
-  mutate(year = as.numeric(year) + 2013) %>%
-  group_by(year)
 # Define server logic required to draw a histogram
 
 shinyServer(function(input, output) {
     output$juvenile_case_type <- renderPlot({
-       ggplot(juvenile_stats_2014, 
+      ggplot(juvenile_stats_2014, 
               aes(x = case_type, y = middlesex)) +
         coord_flip() +
         geom_col(fill = "navy") + 

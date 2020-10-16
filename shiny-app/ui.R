@@ -41,14 +41,17 @@ shinyUI(navbarPage(theme = shinytheme("flatly"),
         br(),
         br(),
         h3("Note"),
-        p("I did some cleaning for the court data from mass.gov, but I have 
-        not processed the Middlesex and Berkshire data yet because I am 
+        p("I did some basic cleaning for the court data from mass.gov, but I 
+        have not processed the Middlesex and Berkshire data yet because I am 
         still waiting for my supervisor's clarifications of many 
-        abbreviations used in the Middlesex and especially the Berkshire 
-        datasets, some technical terms, and what other information would be
-        helpful to be included."),
+        abbreviations used in the Middlesex dasaset and especially the 
+        Berkshire datasets, some technical terms, and what other information 
+        would be helpful to be included."),
         br(),
         br(),
+        h3("Github Repo"),
+        p("Please find my Github Repo here: 
+          https://github.com/anhton99/court-data"),
         ),
     
     #Output 
