@@ -12,12 +12,12 @@ library(shinythemes)
 library(tidyverse)
 library(ggplot2)
 library(readxl)
-library(janitor)
 library(tidycensus)
 library(viridis)
 library(leaflet)
 library(stringr)
 library(sf)
+
 
 
 
@@ -88,10 +88,8 @@ shinyUI(navbarPage(theme = shinytheme("flatly"),
               and present them in my website. I hope to populate this page in the next 
               milestone.")
            ))),
-         fluidRow(column(2), column(8, 
-            align = "center",
-            leafletOutput("middlesex_income_map"))
-            ))
+            leafletOutput("map"))
+           
 ))
 
   

@@ -12,26 +12,25 @@ library(shinythemes)
 library(tidyverse)
 library(ggplot2)
 library(readxl)
-library(janitor)
 library(tidycensus)
 library(viridis)
 library(leaflet)
 library(stringr)
 library(sf)
 
-slc_value <- get_acs(geography = "tract", 
-                     variables = "B19013_001", 
-                     state = "MA",
-                     county = "Middlesex County",
-                     geometry = TRUE)
-
-pal <- colorNumeric(palette = "viridis", 
-                    domain = slc_value$estimate)
-
 
 shinyServer(function(input, output) {
     
-    output$middlesex_income_map <- renderLeaflet({
+    output$map <- renderLeaflet({
+
+      slc_value <- get_acs(geography = "tract", 
+                           variables = "B19013_001", 
+                           state = "MA",
+                           county = "Middlesex County",
+                           geometry = TRUE)
+      pal <- colorNumeric(palette = "viridis", 
+                          domain = slc_value$estimate)
+      
       slc_value %>%
         st_transform(crs = "+init=epsg:4326") %>%
         leaflet(width = "100%") %>%
@@ -47,6 +46,7 @@ shinyServer(function(input, output) {
                   title = "Median Income Value",
                   labFormat = labelFormat(prefix = "$"),
                   opacity = 1)
+      
     })
     
 })        

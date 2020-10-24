@@ -102,7 +102,10 @@ county_income <- get_acs(geography = "county",
 
 glimpse(county_income)
 
-county_income %>%
+get_acs(geography = "county",
+              variables = c(medincome = "B19013_001"),
+              state = "MA",
+              year = 2018) %>%
   mutate(NAME = gsub(" County, Massachusetts", "", NAME)) %>%
   ggplot(aes(x = estimate, y = reorder(NAME, estimate))) +
   geom_errorbarh(aes(xmin = estimate - moe, xmax = estimate + moe)) +
@@ -298,5 +301,16 @@ berkshire_income_map
         labs(title = "Median income distribution in Berkshire County, MA",
              caption = "Source: American Community Survey 2014-2018") +
         theme_void()
+```
+
+```{r}
+slc_value <- get_acs(geography = "tract", 
+                           variables = "B19013_001", 
+                           state = "MA",
+                           county = "Middlesex County",
+                           geometry = TRUE)
+
+saveRDS(slc_value, file = "shiny-app/data/slc.rds")
+
 ```
 
