@@ -13,26 +13,43 @@ library(tidyverse)
 library(ggplot2)
 library(readxl)
 library(janitor)
+library(tidycensus)
+library(viridis)
+library(leaflet)
+library(stringr)
+library(sf)
 
-juvenile_6_years <- readRDS(file = "data/juvenile_6_years.rds")
-juvenile_stats_2014<- readRDS("data/juvenile_stats_2014.rds")
+slc_value <- get_acs(geography = "tract", 
+                     variables = "B19013_001", 
+                     state = "MA",
+                     county = "Middlesex County",
+                     geometry = TRUE)
 
-# Define server logic required to draw a histogram
+pal <- colorNumeric(palette = "viridis", 
+                    domain = slc_value$estimate)
+
 
 shinyServer(function(input, output) {
-    output$juvenile_case_type <- renderPlot({
-      ggplot(juvenile_stats_2014, 
-              aes(x = case_type, y = middlesex)) +
-        coord_flip() +
-        geom_col(fill = "navy") + 
-        labs(
-        title = "Cases brought to Juvenile Courts in Middlesex County, MA",
-              x = " ",
-              y = "Number of cases per kind") +
-        theme_bw() +
-        theme(plot.title = element_text(size = 18),
-              axis.text = element_text(size = 12))
-        
+    
+    output$middlesex_income_map <- renderLeaflet({
+      slc_value %>%
+        st_transform(crs = "+init=epsg:4326") %>%
+        leaflet(width = "100%") %>%
+        addProviderTiles(provider = "CartoDB.Positron") %>%
+        addPolygons(popup = ~ str_extract(NAME, "^([^,]*)"),
+                    stroke = FALSE,
+                    smoothFactor = 0,
+                    fillOpacity = 0.7,
+                    color = ~ pal(estimate)) %>%
+        addLegend("bottomright", 
+                  pal = pal, 
+                  values = ~ estimate,
+                  title = "Median Income Value",
+                  labFormat = labelFormat(prefix = "$"),
+                  opacity = 1)
     })
+    
+})        
+        
 
-})
+

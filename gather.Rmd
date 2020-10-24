@@ -11,9 +11,12 @@ library(tidyverse)
 library(ggplot2)
 library(readxl)
 library(janitor)
+library(tidycensus)
+library(viridis)
+
 ```
 
-```{r}
+```{r juvenile}
 juvenile_stats_2014 <- read_excel("raw_data/Juvenile_stats_2014.xlsx") %>%
   clean_names() %>% 
   select(!total) %>%
@@ -82,5 +85,218 @@ juvenile_6_years <-
 
 saveRDS(juvenile_stats_2014, file = "shiny-app/data/juvenile_stats_2014.rds")
 saveRDS(juvenile_6_years, file = "shiny-app/data/juvenile_6_years.rds")
+```
+
+
+```{r county}
+# Find variables in ACS
+variable_code <- load_variables(2018, "acs5", cache = TRUE)
+View(variable_code)
+
+# Getting American Community Survey data 2014-2018
+# Median income by county
+county_income <- get_acs(geography = "county",
+              variables = c(medincome = "B19013_001"),
+              state = "MA",
+              year = 2018)
+
+glimpse(county_income)
+
+county_income %>%
+  mutate(NAME = gsub(" County, Massachusetts", "", NAME)) %>%
+  ggplot(aes(x = estimate, y = reorder(NAME, estimate))) +
+  geom_errorbarh(aes(xmin = estimate - moe, xmax = estimate + moe)) +
+  geom_point(color = "red", size = 1) +
+  labs(title = "Household income by county in MA",
+       subtitle = "2014-2018 American Community Survey",
+       y = "",
+       x = "ACS estimate (bars represent margin of error)")
+
+#margin of error is small for Berkshire and Middlesex county. For Middlesex, median household income according to 2014-2018 American Community Survey fell between 95,000 and 100,000 US dollars. For Berkshire, median household income fell between 55,000 and 60,000 US dollars per year. In other words, median household income in Berkshire is roughly half of the median household income in Middlesex. 
+
+```
+```{r middlesex}
+# racial population by county
+racial_variables <- c(White = "B03002_003", Black = "B03002_004",
+                      Asian = "B03002_006", Hispanic = "B03002_012")
+
+county_race <- get_acs(geography = "county",
+                       state = "MA",
+                       variables = racial_variables,
+                       summary_var = "B03002_001",
+                       year = 2018) %>%
+  filter(NAME == "Middlesex County, Massachusetts")
+glimpse(county_race)
+
+#racial proportion by county 
+county_race_prop <- county_race %>%
+  mutate(pct = 100 * (estimate/summary_est)) %>%
+  select(NAME, variable, pct)
+
+county_race_prop
+
+# middlesex racial proportion
+middlesex_race <- get_acs(geography = "tract",
+                  variables = racial_variables, 
+                  year = 2018,
+                  state = "MA",
+                  county = "Middlesex County",
+                  geometry = TRUE,
+                  summary_var = "B03002_001")
+middlesex_race
+
+middlesex_race_map <- get_acs(geography = "tract",
+                  variables = racial_variables, 
+                  year = 2018,
+                  state = "MA",
+                  county = "Middlesex County",
+                  geometry = TRUE,
+                  summary_var = "B03002_001") %>%
+  mutate(Percent = 100 * (estimate / summary_est)) %>%
+  ggplot(aes(fill = Percent, color = Percent)) +
+  facet_wrap(~ variable) +
+  geom_sf() +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  labs(title = "Racial geography of Middlesex County, MA",
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+middlesex_race_map
+```
+
+```{r berkshire}
+# berkshire racial proportion
+
+berkshire_race <- get_acs(geography = "tract",
+                  variables = racial_variables, 
+                  year = 2018,
+                  state = "MA",
+                  county = "Berkshire County",
+                  geometry = TRUE,
+                  summary_var = "B03002_001")
+berkshire_race
+
+berkshire_race_map <- get_acs(geography = "tract",
+                  variables = racial_variables, 
+                  year = 2018,
+                  state = "MA",
+                  county = "Berkshire County",
+                  geometry = TRUE,
+                  summary_var = "B03002_001") %>%
+  mutate(Percent = 100 * (estimate / summary_est)) %>%
+  ggplot(aes(fill = Percent, color = Percent)) +
+  facet_wrap(~ variable) +
+  geom_sf() +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  labs(title = "Racial geography of Berkshire County, MA",
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+berkshire_race_map
+
+```
+
+```{r incomemap}
+
+# Median Income value for Middlesex 
+
+middlesex_income_value <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Middlesex County",
+                    geometry = TRUE)
+
+middlesex_income_map <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Middlesex County",
+                    geometry = TRUE) %>%
+  ggplot(aes(fill = estimate, color = estimate)) +
+  geom_sf() +
+  scale_fill_viridis_c(name = "Median Income", direction = -1) +
+  scale_color_viridis_c(name = "Median Income", direction = -1) +
+  labs(title = "Median income distribution in Middlesex County, MA",
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+middlesex_income_map
+
+
+```
+
+```{r}
+# Median Income value for Berkshire 
+
+berkshire_income_value <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Berkshire County",
+                    geometry = TRUE)
+
+berkshire_income_map <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Berkshire County",
+                    geometry = TRUE) %>%
+  ggplot(aes(fill = estimate, color = estimate)) +
+  geom_sf() +
+  scale_fill_viridis_c(name = "Median Income", direction = -1) +
+  scale_color_viridis_c(name = "Median Income", direction = -1) +
+  labs(title = "Median income distribution in Berkshire County, MA",
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+berkshire_income_map
+```
+
+```{r}
+  
+          # berkshire racial geography map
+      
+      berkshire_race_map <- get_acs(geography = "tract",
+                                    variables = racial_variables, 
+                                    year = 2018,
+                                    state = "MA",
+                                    county = "Berkshire County",
+                                    geometry = TRUE,
+                                    summary_var = "B03002_001") %>%
+        mutate(Percent = 100 * (estimate / summary_est)) %>%
+        ggplot(aes(fill = Percent, color = Percent)) +
+        facet_wrap(~ variable) +
+        geom_sf() +
+        scale_fill_viridis_c(direction = -1) +
+        scale_color_viridis_c(direction = -1) +
+        labs(title = "Racial geography of Berkshire County, MA",
+             caption = "Source: American Community Survey 2014-2018") +
+        theme_void()
+      # middlesex income
+      middlesex_income_map <- get_acs(geography = "tract", 
+                                      variables = "B19013_001", 
+                                      state = "MA",
+                                      county = "Middlesex County",
+                                      geometry = TRUE) %>%
+        ggplot(aes(fill = estimate, color = estimate)) +
+        geom_sf() +
+        scale_fill_viridis_c(name = "Median Income", direction = -1) +
+        scale_color_viridis_c(name = "Median Income", direction = -1) +
+        labs(title = "Median income distribution in Middlesex County, MA",
+             caption = "Source: American Community Survey 2014-2018") +
+        theme_void()
+      
+      # berkshire income 
+      berkshire_income_map <- get_acs(geography = "tract", 
+                                      variables = "B19013_001", 
+                                      state = "MA",
+                                      county = "Berkshire County",
+                                      geometry = TRUE) %>%
+        ggplot(aes(fill = estimate, color = estimate)) +
+        geom_sf() +
+        scale_fill_viridis_c(name = "Median Income", direction = -1) +
+        scale_color_viridis_c(name = "Median Income", direction = -1) +
+        labs(title = "Median income distribution in Berkshire County, MA",
+             caption = "Source: American Community Survey 2014-2018") +
+        theme_void()
 ```
 
