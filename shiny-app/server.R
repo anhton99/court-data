@@ -23,6 +23,7 @@ shinyServer(function(input, output) {
     
     output$map <- renderLeaflet({
 
+      census_api_key("1a79221691b543c60cd880cd9b8a3e794464464d")
       slc_value <- get_acs(geography = "tract", 
                            variables = "B19013_001", 
                            state = "MA",

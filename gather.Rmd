@@ -13,6 +13,9 @@ library(readxl)
 library(janitor)
 library(tidycensus)
 library(viridis)
+library(lubridate)
+library(janitor)
+library(scales)
 
 ```
 
@@ -311,6 +314,192 @@ slc_value <- get_acs(geography = "tract",
                            geometry = TRUE)
 
 saveRDS(slc_value, file = "shiny-app/data/slc.rds")
+
+```
+
+```{r}
+#### MIDDLESEX WRANGLING ####
+
+middlesex_5_years <- read_excel("~/Desktop/Gov-50/court-data/raw_data/Middlesex_2014_to_2019.xlsx")
+middlesex_1 <- middlesex_5_years %>% 
+  clean_names() %>%
+  group_by(case_number) %>%
+  mutate(offense_date = as_date(offense_date),
+         date_of_filing = as_date(date_of_filing),
+         disposition_date = as_date(disposition_date)) 
+  
+# Calculate difference between date of filing date, offense date, and 
+# disposition date
+
+# original data = 343,099 rows 
+middlesex_2 <- middlesex_1 %>% 
+
+# filter to only cases that happened and got resolved between 2014-2019
+# this leaves us with 285,639 rows 
+  
+  filter(offense_date >= "2014-01-01", offense_date <= "2019-12-31", 
+         date_of_filing >= "2014-01-01", date_of_filing <= "2019-12-31", 
+         disposition_date >= "2014-01-01", disposition_date <= "2019-12-31") %>%
+
+# calculate the time lapse between each stage of the case process 
+  
+  mutate(filing_offense_diff = as.double(difftime(date_of_filing, offense_date, 
+                                                  units = "days"))) %>%
+  mutate(dispo_offense_diff = as.double(difftime(disposition_date,
+                                                       offense_date, 
+                                                 units = "days"))) %>% 
+  mutate(total_diff = as.double(difftime(disposition_date, date_of_filing, 
+                                         units = "days"))) %>%
+  
+# filter to only when the time lapse is bigger than 0
+# this is because if time lapse < 0, there is an error 
+# in recording the dates 
+
+  filter(filing_offense_diff > 0, 
+         dispo_offense_diff > 0, 
+         total_diff > 0)
+
+# the results leave us with 191,062 rows
+# rename middlesex_2 
+
+# COURT EFFICIENCY ANALYSIS
+
+# Court efficiency measured by cases
+
+# A table summary of cases for each type of court 
+middle_table <- middlesex_2 %>%
+  mutate(court_location = ifelse(!court_location %in% 
+                             c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH"),
+                           "District Court", court_location)) %>%
+  
+  mutate(court_location = ifelse(court_location %in% 
+                             c("CAMJU", "FRAJU", "LOWJU", "WALJU"
+                                  ),
+                           "Juvenile Court", court_location)) %>%
+  
+  mutate(court_location = ifelse(court_location %in% 
+                             c("LSUP", "MSUP"
+                                  ),
+                           "Superior Court", court_location)) %>% 
+  mutate(court_location = ifelse(court_location ==
+                             "OTH",
+                           "Other", court_location)) %>%
+  mutate(court_location = ifelse(court_location ==
+                             "NA",
+                           "N/A", court_location)) %>%
+
+# select to do unique 
+  select(case_number, court_location) %>%
+
+# unique to ensure each case is counted once 
+  unique() %>%
+  
+# 88,651 for all court cases 
+  
+  group_by(court_location) %>%
+  summarize(count = n(), .groups = "drop") %>% 
+  arrange(desc(count)) %>% 
+  pivot_wider(names_from = court_location, 
+              values_from = count)
+
+# We have a table for all cases in each court type in the past 6 years
+
+middle_table
+
+# We look only to investigate cases that go through
+# district and superior courts 
+
+## District courts 
+
+middlesex_district <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>%
+
+    select(case_number, court_location, department_filing_charge,
+           name_of_judge, filing_offense_diff, dispo_offense_diff, total_diff) %>%
+    group_by(court_location) %>%
+
+# make sure the same case is not counted more than once 
+  
+    unique()
+
+# In total, we have 84,504 cases in District Courts in the past 6 years 
+
+## Total Cases by District Courts in Middlesex, MA ##
+
+# We have 12 district courts 
+
+mid_dis <- middlesex_district %>%
+  group_by(court_location) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count)) 
+
+mid_dis_plot <- mid_dis %>% 
+  ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
+    geom_col(aes(y = count)) +
+    geom_text(aes(label = comma(count), y = count), nudge_y = 550, size = 3) +
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = comma_format()) + 
+    labs(title = "Total Cases by District Courts in Middlesex, MA",
+         subtitle = "Year: 2014-2019",
+         x = "",
+         y = "") 
+
+mid_dis_plot
+
+## Total Cases by Superior Courts in Middlesex, MA ##
+
+middlesex_sup <- middlesex_2 %>%
+
+    filter(court_location %in% c("LSUP", "MSUP" 
+                                  )) %>%
+
+    select(case_number, court_location, department_filing_charge,
+           name_of_judge, filing_offense_diff, dispo_offense_diff, total_diff) %>%
+    group_by(court_location) %>%
+    unique()
+
+mid_sup <- middlesex_sup %>%
+  group_by(court_location) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count))
+
+mid_sup_plot <- mid_sup %>% 
+  ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
+    geom_col(aes(y = count)) +
+    geom_text(aes(label = comma(count), y = count), nudge_y = 50, size = 3) +
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = comma_format()) + 
+    labs(title = "Total Cases by Superior Courts in Middlesex, MA",
+         subtitle = "Year: 2014-2019",
+         x = "",
+         y = "") 
+
+mid_sup_plot
+
+```
+
+Bershire
+
+```{r}
+berkshire_2014_2018 <- read_excel("raw_data/1 Berkshire DA - ACLU Prosecution Data 1, 2 and 4 .xlsx")
+View(berkshire_2014_2018)
+
+berkshire_2014_2018 <- berkshire_2014_2018 %>% 
+  clean_names() %>%
+  rename(case_disposition = case_dspstn,
+         charge_disposition = charge_dspstn,
+         case_status = d_cs_status)
+
+berkshire_2014_2018
+
+unique(berkshire_2014_2018$case_status)
 
 ```
 

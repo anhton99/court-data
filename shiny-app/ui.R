@@ -88,7 +88,8 @@ shinyUI(navbarPage(theme = shinytheme("flatly"),
               and present them in my website. I hope to populate this page in the next 
               milestone.")
            ))),
-            leafletOutput("map"))
+            leafletOutput("map"),
+         h3("Court Efficiency", align = ),)
            
 ))
 
