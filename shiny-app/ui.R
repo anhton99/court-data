@@ -24,47 +24,39 @@ library(sf)
 # Define UI for application that draws a histogram
 shinyUI(navbarPage(theme = shinytheme("flatly"),
                    "Racial Disparities in 
-                   Juvenile Courts, MA", 
+                   Middlesex County, MA", 
    
-# Application title
-   
- tabPanel("About",
+############################
+                   
+                   
+############## FIRST PAGE ##############   
+ 
+tabPanel("Weekly Progress",
+         br(),
+          p(em("Note: This tab is temporary"
+            ), align = "center"),
           br(),
-          br(),
-          p(em("Note: This tab will later be made the last to appear on shinyapp. For now 
-          I will make it as the first tab so you can see my updates as my project 
-            progresses. Thank you so much for your feedback and support! :)"
-            )),
-          br(),
-        h3("About This Project"),
-        p("The ongoing Black Live Matters movement and the recent events 
-        concerning racial injustice in legal institutions have motivated me 
-        to understand racial justice via data analysis and visualization"),
-        p("My current intenrnship with a juvenile justice organization
-        further my interests in racial disparities in the courtroom with a 
-        focus on justice for the youth (age 11-17)."),
-        p("As for my approach, I plan to use data from mass.gov
-        to look at some basic statistics in the types and
-        volume of cases brought to juvenile courts by county during 2014-2018. 
-        I will also use the prosecution data for Middlesex and Berkshire -
-        the two datasets that I currently have access to."),
-        p("For each county, I will first provide some demographic backgrounds
-        regarding income and racial geography. I will then 
-        analyze indicators that shed light on 
-        court efficiency (how long they pursue a case
-        and whether the case is dropped or resolved) and racial equity 
-        (whether the length of time from case filed to case resolution, 
-        case charge, and sentence types are systematically different for
-        people belonging to different races."),
-        p("I will also draw some comparisons between the two counties to see
-          which county has a more effective and just juvenile system given
-          the indicators chosen."),
-        p(em("One thing I hope to achieve besides showing correlation is to 
-          actually investigating the impact race has on court decisions after
-          controlling for other demographic variables (I currently have income
-          but I'm thinking more to see if there are other potential confounds).
-          I hope to learn more about regression analysis and apply it to my
-             project.")),
+        h3("What you will find on my Shiny"),
+        p("This page has 3 tabs: Weekly progress, Middlesex, and Overview"),
+        p("On the
+          Middlesex tab, you will find a leaflet map. On the Overview
+          tab, you will find a basic interactive plot"),
+        h3("Update for Week 10: 11/2 - 8"),
+        p("I first focused on trying to understand the research 
+          literature by reading the most recent report from HLS. I met with
+          Wyatt outside section to discuss my final project outline (written in
+          google docs) and received so much support and guidance from him."),
+        p("For the majority of the time I was trying to do data wrangling and thinking
+        about how to interpret the data. Due to time constraint, 
+        I only spent a little time trying to get some graphs from my R markdown 
+        to display on Shiny. A more accurate representation
+          of what I have done would be in my gather.Rmd"),
+        h3("Plan for next week"),
+        p("- Reach out to Harvard law clinics and others for advice on how to 
+          interpret and analyze the data e.g. how to analyze race"),
+        p("- Put at least one more graph and one more table on Shiny along with
+          some interpretation"),
+        p("- Continue to read on RED analysis + connect with the textbook"),
         br(),
         h3("Github Repo"),
         p("Please find my Github Repo here: 
@@ -76,21 +68,39 @@ shinyUI(navbarPage(theme = shinytheme("flatly"),
          br(),
             fluidRow(column(2), column(8,
          p("Here I want to show the median income demographics in Middlesex County, MA"),
-         p(em("I initially created maps showing racial and income demographics in 
-         Middlesex and Berkshire using ggmap
-         like the one shown in The Primer, 
-          but when I published my webpage via Shiny I received an error: Check your logs or contact the app author 
-          for clarification. It's a bit confusing for me because the maps worked just fine when
-          I tried running them in R. In the interest of time, I decided
-              to learn about leaflet - a package built in Shiny - and create a map showing
-              median income - an indicator of socioeconomic status. I will need more time
-              to think about key information that might be confounded with racial injustice
-              and present them in my website. I hope to populate this page in the next 
-              milestone.")
-           ))),
-            leafletOutput("map"),
-         h3("Court Efficiency", align = ),)
-           
-))
+            leafletOutput("map")
+         ))),
+
+   tabPanel("Overview",
+            p("Hello"),
+            sidebarLayout(
+                sidebarPanel(
+                   selectInput(
+                        inputId = "district_court",
+                        label = "Select Court District:",
+                                choices = c("Ayer District Court",
+                                           "Cambridge District Court",
+                                           "Concord District Court",
+                                           "Framingham District Court",
+                                           "Lowell District Court",
+                                           "Malden District Court",
+                                           "Marlborough District Court",
+                                           "Natick District Court",
+                                           "Newton District Court",
+                                           "Somerville District Court",
+                                           "Waltham District Court",
+                                           "Woburn District Court"), 
+                        selected = "Ayer District Court")
+                    ),
+                mainPanel(
+                        plotOutput("mid_race_graph")
+                            )
+                    )
+               )
+            )
+        
+         
+)         
+
 
   

@@ -18,17 +18,14 @@ library(leaflet)
 library(stringr)
 library(sf)
 
+slc_value <- readRDS("data/slc_value.rds")
+mid_race_percent <- readRDS("data/mid_race_percent.rds")
 
 shinyServer(function(input, output) {
     
     output$map <- renderLeaflet({
 
-      census_api_key("1a79221691b543c60cd880cd9b8a3e794464464d")
-      slc_value <- get_acs(geography = "tract", 
-                           variables = "B19013_001", 
-                           state = "MA",
-                           county = "Middlesex County",
-                           geometry = TRUE)
+      
       pal <- colorNumeric(palette = "viridis", 
                           domain = slc_value$estimate)
       
@@ -50,7 +47,17 @@ shinyServer(function(input, output) {
       
     })
     
-})        
+    output$mid_race_graph <- renderPlot({
+      
+      mid_race_percent %>%
+        filter(district_court == input$district_court) %>%
+        ggplot(aes(x = percent_race, y = percent)) +
+        geom_col(fill = "blue") +
+        theme_bw() 
+      
+    })
+    
+})     
         
 
 

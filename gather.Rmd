@@ -103,6 +103,8 @@ county_income <- get_acs(geography = "county",
               state = "MA",
               year = 2018)
 
+saveRDS(county_income, file = "shiny-app/data/county_income.rds")
+
 glimpse(county_income)
 
 get_acs(geography = "county",
@@ -312,6 +314,7 @@ slc_value <- get_acs(geography = "tract",
                            state = "MA",
                            county = "Middlesex County",
                            geometry = TRUE)
+saveRDS(slc_value, file = "shiny-app/data/slc_value.rds")
 
 saveRDS(slc_value, file = "shiny-app/data/slc.rds")
 
@@ -332,6 +335,7 @@ middlesex_1 <- middlesex_5_years %>%
 # disposition date
 
 # original data = 343,099 rows 
+
 middlesex_2 <- middlesex_1 %>% 
 
 # filter to only cases that happened and got resolved between 2014-2019
@@ -348,7 +352,9 @@ middlesex_2 <- middlesex_1 %>%
   mutate(dispo_offense_diff = as.double(difftime(disposition_date,
                                                        offense_date, 
                                                  units = "days"))) %>% 
-  mutate(total_diff = as.double(difftime(disposition_date, date_of_filing, 
+  mutate(dispo_filing_diff = as.double(difftime(disposition_date, date_of_filing, 
+                                         units = "days"))) %>%
+  mutate(total_diff = as.double(difftime(disposition_date, offense_date, 
                                          units = "days"))) %>%
   
 # filter to only when the time lapse is bigger than 0
@@ -357,6 +363,7 @@ middlesex_2 <- middlesex_1 %>%
 
   filter(filing_offense_diff > 0, 
          dispo_offense_diff > 0, 
+         dispo_filing_diff > 0,
          total_diff > 0)
 
 # the results leave us with 191,062 rows
@@ -422,14 +429,16 @@ middlesex_district <- middlesex_2 %>%
                                   "NA", "OTH")) %>%
 
     select(case_number, court_location, department_filing_charge,
-           name_of_judge, filing_offense_diff, dispo_offense_diff, total_diff) %>%
+           name_of_judge, filing_offense_diff, dispo_offense_diff, 
+           dispo_filing_diff, total_diff, defendant_race, 
+           defendant_ethnicity) %>%
     group_by(court_location) %>%
 
 # make sure the same case is not counted more than once 
   
     unique()
 
-# In total, we have 84,504 cases in District Courts in the past 6 years 
+# In total, we have 84,148 cases in District Courts in the past 6 years 
 
 ## Total Cases by District Courts in Middlesex, MA ##
 
@@ -439,6 +448,9 @@ mid_dis <- middlesex_district %>%
   group_by(court_location) %>%
   summarize(count = n(), .groups = "drop") %>%
   arrange(desc(count)) 
+
+saveRDS(mid_dis, file = "shiny-app/data/mid_dis.rds")
+
 
 mid_dis_plot <- mid_dis %>% 
   ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
@@ -470,6 +482,9 @@ mid_sup <- middlesex_sup %>%
   summarize(count = n(), .groups = "drop") %>%
   arrange(desc(count))
 
+saveRDS(mid_sup, file = "shiny-app/data/mid_sup.rds")
+
+
 mid_sup_plot <- mid_sup %>% 
   ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
     geom_col(aes(y = count)) +
@@ -500,6 +515,145 @@ berkshire_2014_2018 <- berkshire_2014_2018 %>%
 berkshire_2014_2018
 
 unique(berkshire_2014_2018$case_status)
+
+```
+
+```{r}
+# How many days does it take for each court? 
+
+
+middlesex_district %>%
+  filter(court_location == "LOW") %>%
+  pivot_longer(cols = c(filing_offense_diff, dispo_offense_diff, total_diff),
+               names_to = "time stage",
+               values_to = "value") %>%
+  group_by(case_number) 
+
+# currently, middlesex_district has 84,148 rows or 84,148 total cases 
+
+m <- middlesex_district %>%
+  mutate(defendant_race = case_when(defendant_race == "W" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" ~ "Hispanic",
+                          TRUE ~ "Other")) %>%
+  mutate(defendant_ethnicity = ifelse(defendant_ethnicity == "HL",
+                                      "Hispanic",
+                                      "non-Hispanic")) %>%
+  group_by(court_location, defendant_race) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  pivot_wider(names_from = defendant_race, values_from = count
+              ) %>%
+  clean_names() %>%
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>%
+  rename(district_court = court_location)
+
+
+
+m
+  
+
+```
+
+```{r}
+uszips <- read_excel("raw_data/uszips.xlsx")
+
+uszips_mid <- uszips %>% 
+                filter(state_id == "MA", county_name == "Middlesex")
+
+city_and_court <- read_excel("raw_data/city and court.xlsx")
+city_and_court
+
+# Racial disparity 
+# Total population each court served
+
+# Race as % Total population all district courts served 
+# Race as % Total cases all district courts handled 
+join_pop <- inner_join(uszips_mid, city_and_court, by = "city")
+
+View(join_pop)
+glimpse(join_pop)
+
+
+# Race as % Total population each court served 
+# Race as % Total cases each court handled 
+
+```
+
+```{r race by court}
+race <- get_acs(geography = "zcta", 
+                           variables = c(White = "B03002_003", 
+                                         Black = "B03002_004",
+                      Asian = "B03002_006", Hispanic = "B03002_012"), 
+                           
+                           geometry = TRUE)
+
+glimpse(race)
+
+race <- race %>%
+  mutate(zip = as.double(zip))
+
+pop_race <- left_join(join_pop, race, by = "zip")
+
+# get total population 
+pop_race_total <- pop_race %>%
+  pivot_wider(id_cols = c(zip, district_court), names_from = variable, values_from = estimate) %>%
+  group_by(district_court) %>%
+  summarize(total_white = sum(White),
+            total_black = sum(Black),
+            total_asian = sum(Asian),
+            total_hispanic = sum(Hispanic),
+            .groups = "drop") 
+
+# get population percentile 
+pop_race_percent <- pop_race_total %>%
+  mutate(percent_white = total_white/total_population,
+         percent_black = total_black/total_population,
+         percent_asian = total_asian/total_population,
+         percent_hispanic = total_hispanic/total_population) 
+
+
+pop_race_total <- pop_race_total %>%
+  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
+                                 "Somerville District Court",
+                                 district_court))
+
+mid_join_race <- left_join(pop_race_total, m, by = "district_court")
+
+mid_race_percent <- mid_join_race %>%
+  mutate(percent_white = white/total_white,
+         percent_black = black/total_black,
+         percent_hispanic = hispanic/total_hispanic) %>%
+  select(district_court, percent_white, percent_black, percent_hispanic) %>%
+  pivot_longer(cols = c("percent_black", "percent_white", "percent_hispanic"),
+               names_to = "percent_race",
+               values_to = "percent")
+
+mid_race_percent %>%
+  filter(district_court == "Ayer District Court") %>%
+  ggplot(aes(x = percent_race, y = percent)) +
+  geom_col(fill = "blue") +
+  labs(title = "Ayer District Court") +
+  theme_bw() 
+
+saveRDS(mid_race_percent, file = "shiny-app/data/mid_race_percent.rds")
+
+```
+
+```{r}
 
 ```
 
