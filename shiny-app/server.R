@@ -29,6 +29,8 @@ shinyServer(function(input, output) {
       pal <- colorNumeric(palette = "viridis", 
                           domain = slc_value$estimate)
       
+      st_crs(slc_value) <- 4326
+      
       slc_value %>%
         st_transform(crs = "+init=epsg:4326") %>%
         leaflet(width = "100%") %>%
