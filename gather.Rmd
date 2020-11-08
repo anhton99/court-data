@@ -603,13 +603,12 @@ total_pop <- join_pop %>% select(population, district_court, city) %>%
 
 sum_count_mid <- left_join(mid_dis, total_pop, 
                            by = "district_court") %>%
-  mutate(district_court = as_factor(district_court)) %>%
-  pivot_longer(cols = c(count, sum), 
+ mutate(district_court = fct_reorder(as_factor(district_court), count)) %>%     pivot_longer(cols = c(count, sum), 
                                  names_to = "ratio", 
                                  values_to = "number") %>%
                     ggplot(aes(x = district_court, 
                                y = number, 
-                               fill = fct_reorder(ratio, -number))) +
+                               fill = forcats::fct_rev(ratio))) +
   geom_col(position = "fill") +
   labs(title = "Cases by Total Population served",
        subtitle = "District courts, Middlesex County",
@@ -682,17 +681,19 @@ mid_race_percent <- mid_join_race %>%
                names_to = "percent_race",
                values_to = "percent")
 
-mid_race_percent %>%
-  filter(district_court == "Ayer District Court") %>%
-  ggplot(aes(x = percent_race, y = percent)) +
-  geom_col(fill = "blue") +
-  labs(title = "Ayer District Court") +
-  theme_bw() 
 
 saveRDS(mid_race_percent, file = "shiny-app/data/mid_race_percent.rds")
 
 pop_race_total
 
+pop_race_percent <- left_join(pop_race_total, 
+                              total_pop, by = "district_court") %>%
+  mutate(black_percent = total_black/sum,
+         white_percent = total_white/sum,
+         hispanic_percent = total_hispanic/sum) %>%
+  select(district_court, black_percent, white_percent, hispanic_percent)
+
+  
 
 
 ```
