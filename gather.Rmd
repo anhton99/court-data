@@ -413,7 +413,7 @@ middle_table <- middlesex_2 %>%
 
 # We have a table for all cases in each court type in the past 6 years
 
-middle_table
+middle_table %>% gt()
 
 # We look only to investigate cases that go through
 # district and superior courts 
@@ -500,23 +500,26 @@ mid_sup_plot
 
 ```
 
-Bershire
-
 ```{r}
-berkshire_2014_2018 <- read_excel("raw_data/1 Berkshire DA - ACLU Prosecution Data 1, 2 and 4 .xlsx")
-View(berkshire_2014_2018)
-
-berkshire_2014_2018 <- berkshire_2014_2018 %>% 
-  clean_names() %>%
-  rename(case_disposition = case_dspstn,
-         charge_disposition = charge_dspstn,
-         case_status = d_cs_status)
-
-berkshire_2014_2018
-
-unique(berkshire_2014_2018$case_status)
-
+mid_dis <- mid_dis %>%
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>%
+  rename(district_court = court_location)
 ```
+
 
 ```{r}
 # How many days does it take for each court? 
@@ -584,8 +587,45 @@ city_and_court
 # Race as % Total cases all district courts handled 
 join_pop <- inner_join(uszips_mid, city_and_court, by = "city")
 
-View(join_pop)
+
 glimpse(join_pop)
+
+# total population served by court 
+
+total_pop <- join_pop %>% select(population, district_court, city) %>%
+  group_by(district_court) %>%
+  summarise(sum = sum(population), .groups = "drop") %>%
+  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
+                                 "Somerville District Court",
+                                 district_court))
+#mutate(ratio = count/sum) %>% 
+# mutate(district_court = fct_reorder(district_court, ratio)) %>%
+
+sum_count_mid <- left_join(mid_dis, total_pop, 
+                           by = "district_court") %>%
+  mutate(district_court = as_factor(district_court)) %>%
+  pivot_longer(cols = c(count, sum), 
+                                 names_to = "ratio", 
+                                 values_to = "number") %>%
+                    ggplot(aes(x = district_court, 
+                               y = number, 
+                               fill = fct_reorder(ratio, -number))) +
+  geom_col(position = "fill") +
+  labs(title = "Cases by Total Population served",
+       subtitle = "District courts, Middlesex County",
+       x = "",
+       y = "Population") +
+  scale_fill_manual(name = "",
+                    values = c("red", "blue"),
+                    breaks = c("count", "sum"),
+                    labels = c("Total cases", "Population served")) +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  coord_flip()
+
+sum_count_mid 
+  
 
 
 # Race as % Total population each court served 
@@ -603,7 +643,8 @@ race <- get_acs(geography = "zcta",
 
 glimpse(race)
 
-race <- race %>%
+race <- race %>% 
+  rename(zip = GEOID) %>%
   mutate(zip = as.double(zip))
 
 pop_race <- left_join(join_pop, race, by = "zip")
@@ -616,7 +657,10 @@ pop_race_total <- pop_race %>%
             total_black = sum(Black),
             total_asian = sum(Asian),
             total_hispanic = sum(Hispanic),
-            .groups = "drop") 
+            .groups = "drop") %>%
+  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
+                                 "Somerville District Court",
+                                 district_court))
 
 # get population percentile 
 pop_race_percent <- pop_race_total %>%
@@ -626,10 +670,6 @@ pop_race_percent <- pop_race_total %>%
          percent_hispanic = total_hispanic/total_population) 
 
 
-pop_race_total <- pop_race_total %>%
-  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
-                                 "Somerville District Court",
-                                 district_court))
 
 mid_join_race <- left_join(pop_race_total, m, by = "district_court")
 
@@ -650,6 +690,10 @@ mid_race_percent %>%
   theme_bw() 
 
 saveRDS(mid_race_percent, file = "shiny-app/data/mid_race_percent.rds")
+
+pop_race_total
+
+
 
 ```
 
