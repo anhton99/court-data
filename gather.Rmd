@@ -837,8 +837,78 @@ m3 %>%
 
 saveRDS(m3, file = "shiny-app/data/m3.rds")
 
-  
+m3a <- middlesex_district %>% 
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>%
+  mutate(defendant_race = case_when(defendant_race == "W" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" ~ "Hispanic",
+                          TRUE ~ "Other")) %>%
+  mutate(defendant_ethnicity = ifelse(defendant_ethnicity == "HL",
+                                      "Hispanic",
+                                      "non-Hispanic"))
+
+#Black versus White for filing offense 
+
+m3a %>% pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length") %>%
+  filter(court_location == "Lowell District Court") %>%
+  filter(defendant_race %in% c("Black", "White")) %>%
+  filter(stage == "filing_offense_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) +
+  facet_wrap(~defendant_race)
+
+#Black versus White for disposition filing 
+
+m3a %>% pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length") %>%
+  filter(court_location == "Lowell District Court") %>%
+  filter(defendant_race %in% c("Black", "White")) %>%
+  filter(stage == "dispo_filing_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) +
+  facet_wrap(~defendant_race)
+
+# Black and White for all courts 
+
+m3a %>% 
+  filter(defendant_race %in% c("Black", "White")) %>%
+  group_by(defendant_race) %>%
+  summarize(median_1 = median(filing_offense_diff),
+            max_1 = max(filing_offense_diff),
+            min_1 = min(filing_offense_diff)) %>%
+  pivot_longer(cols = ends_with("_1"), names_to = "filing_offense", values_to = "value")
+
 # fill = forcats::fct_rev(stage))
+# median_2 = median(dispo_filing_diff)
+# max_2 = max(dispo_filing_diff)
+# min_2 = min(dispo_filing_diff)
 ```
 
 ```{r}
