@@ -412,6 +412,7 @@ middle_table <- middlesex_2 %>%
               values_from = count)
 
 # We have a table for all cases in each court type in the past 6 years
+saveRDS(middle_table, file = "shiny-app/data/middle_table.rds")
 
 middle_table %>% gt()
 
@@ -453,15 +454,18 @@ saveRDS(mid_dis, file = "shiny-app/data/mid_dis.rds")
 
 
 mid_dis_plot <- mid_dis %>% 
-  ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
+  ggplot(aes(x = fct_reorder(district_court, count), fill = district_court)) +
     geom_col(aes(y = count)) +
-    geom_text(aes(label = comma(count), y = count), nudge_y = 550, size = 3) +
-    theme(legend.position = "none") +
+    geom_text(aes(label = comma(count), y = count), 
+              nudge_y = 1100, size = 3) + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(legend.position = "none") +
     scale_y_continuous(labels = comma_format()) + 
     labs(title = "Total Cases by District Courts in Middlesex, MA",
          subtitle = "Year: 2014-2019",
          x = "",
-         y = "") 
+         y = "")
 
 mid_dis_plot
 
@@ -480,7 +484,10 @@ middlesex_sup <- middlesex_2 %>%
 mid_sup <- middlesex_sup %>%
   group_by(court_location) %>%
   summarize(count = n(), .groups = "drop") %>%
-  arrange(desc(count))
+  arrange(desc(count)) %>%
+  mutate(court_location = case_when(court_location == "MSUP" ~ "Middlesex County Superior Court",
+                                    court_location == "LSUP" ~ "Lowell Superior Court",
+                                    TRUE ~ "Other"))
 
 saveRDS(mid_sup, file = "shiny-app/data/mid_sup.rds")
 
@@ -491,10 +498,14 @@ mid_sup_plot <- mid_sup %>%
     geom_text(aes(label = comma(count), y = count), nudge_y = 50, size = 3) +
     theme(legend.position = "none") +
     scale_y_continuous(labels = comma_format()) + 
+    theme_minimal() +
+    theme(legend.position = "none") +
     labs(title = "Total Cases by Superior Courts in Middlesex, MA",
          subtitle = "Year: 2014-2019",
          x = "",
-         y = "") 
+         y = "") +
+   scale_x_discrete(labels = c("Lowell \n Superior Court", 
+                                "Middlesex County \n Superior Court"))
 
 mid_sup_plot
 
@@ -564,10 +575,52 @@ m <- middlesex_district %>%
                    )) %>%
   rename(district_court = court_location)
 
+# total cases 
+sum <- middlesex_district %>%
+  mutate(defendant_race = case_when(defendant_race == "W" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" ~ "Hispanic",
+                          TRUE ~ "Other")) %>%
+  group_by(defendant_race) %>%
+  summarize(count = n()) %>%
+  ungroup() %>%
+  summarize(sum = sum(count))
+
+### Case by population by Race (All Court Districts) ###
+
+case_pop_race <- m %>% summarize(black = sum(black),
+                white = sum(white),
+                hispanic = sum(hispanic)) %>%
+      mutate(Black = black/84148,
+             White = white/84148,
+             Hispanic = hispanic/84148) %>% 
+      select(Black, White, Hispanic) %>%
+  pivot_longer(cols = everything(), names_to = "race", values_to = "cases") %>%
+  mutate(race_pop_percent = c(0.059, 0.782, 0.083)) %>%
+  pivot_longer(cols = -race, names_to = "yes", values_to = "value") %>%
+  mutate(race = as_factor(race)) 
+
+saveRDS(case_pop_race, file = "shiny-app/data/case_pop_race.rds")
 
 
-m
-  
+case_pop_race %>% 
+  ggplot(aes(x = factor(race, levels = c("White", "Black", "Hispanic")), 
+             y = value, fill = forcats::fct_rev(yes))) +
+  geom_col(position = "dodge") +
+  theme_minimal() +
+  scale_fill_manual(name = "Race",
+                    values = c("salmon", "dodgerblue"),
+                    breaks = c("race_pop_percent", "cases"),
+                    labels = c("% Total population", "% Total cases")) +
+  labs(title = "Cases by Population (by Race)",
+       subtitle = "All District Courts, Middlesex County",
+       x = "",
+       y = "") +
+  geom_text(aes(label = percent(value), y = value), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  scale_y_continuous(limits = c(0,1), labels = percent_format()) +
+  theme(legend.position = "top")
+
 
 ```
 
@@ -598,18 +651,34 @@ total_pop <- join_pop %>% select(population, district_court, city) %>%
   mutate(district_court = ifelse(district_court == "Somerville District Court Office",
                                  "Somerville District Court",
                                  district_court))
-#mutate(ratio = count/sum) %>% 
-# mutate(district_court = fct_reorder(district_court, ratio)) %>%
 
-sum_count_mid <- left_join(mid_dis, total_pop, 
+
+###
+sum_count_mid <- left_join(mid_dis, total_pop,
                            by = "district_court") %>%
- mutate(district_court = fct_reorder(as_factor(district_court), count)) %>%     pivot_longer(cols = c(count, sum), 
-                                 names_to = "ratio", 
+  mutate(district_court = as_factor(district_court)) %>%
+  mutate(total = count + sum,
+         count = count / total,
+         sum = sum / total) %>%
+  select(-total) 
+
+sum_count <- sum_count_mid %>%
+  arrange(desc(sum)) %>%
+  pivot_longer(cols = c(count, sum),
+                                 names_to = "ratio",
                                  values_to = "number") %>%
-                    ggplot(aes(x = district_court, 
-                               y = number, 
-                               fill = forcats::fct_rev(ratio))) +
-  geom_col(position = "fill") +
+  mutate(order = rep(seq(1, 12, by = 1), each = 2)) 
+
+
+saveRDS(sum_count, file = "shiny-app/data/sum_count.rds")
+
+sum_count_mid %>%
+
+sum_count %>%
+  ggplot(aes(x = fct_reorder(district_court, order),
+                               y = number,
+                               fill = fct_reorder(ratio, -number))) +
+  geom_col() +
   labs(title = "Cases by Total Population served",
        subtitle = "District courts, Middlesex County",
        x = "",
@@ -623,7 +692,19 @@ sum_count_mid <- left_join(mid_dis, total_pop,
   theme(legend.position = "bottom") +
   coord_flip()
 
-sum_count_mid 
+sum_count_mid_plot 
+
+saveRDS(sum_count_mid, file = "shiny-app/data/sum_count_mid.rds")
+
+sum_count_table <- sum_count_mid %>% 
+  summarize(min = percent(min(count)), 
+            median = percent(median(count)),
+            max = percent(max(count)),) %>% 
+  pivot_longer(cols = everything(), 
+               names_to = "summary", values_to = "value") %>%
+  gt() %>%
+  tab_header(title = "Total cases as % of Population served",
+             subtitle = "12 district courts in Middlesex County")
   
 
 
@@ -691,14 +772,190 @@ pop_race_percent <- left_join(pop_race_total,
   mutate(black_percent = total_black/sum,
          white_percent = total_white/sum,
          hispanic_percent = total_hispanic/sum) %>%
-  select(district_court, black_percent, white_percent, hispanic_percent)
+  select(district_court, black_percent, white_percent, hispanic_percent) %>%
+  pivot_longer(cols = -district_court, 
+               names_to = "race", 
+               values_to = "pop_percent") %>%
+  mutate(race = case_when(race == "black_percent" ~ "black",
+                               race == "white_percent" ~ "white",
+                               race == "hispanic_percent" ~ "hispanic",
+                               TRUE ~ "Other"))
 
+
+
+
+mid_dis
+m
+m2 <- left_join(m, mid_dis, by = "district_court") %>%
+  rename(sum = count) %>%
+  mutate(mp_black = black/sum,
+         mp_white = white/sum,
+         mp_hispanic = hispanic/sum) %>%
+  select(district_court, mp_black, mp_white, mp_hispanic) %>%
+  pivot_longer(cols = -district_court, 
+               names_to = "case_race", 
+               values_to = "case_percent") %>%
+  mutate(case_race = case_when(case_race == "mp_black" ~ "black",
+                               case_race == "mp_white" ~ "white",
+                               case_race == "mp_hispanic" ~ "hispanic",
+                               TRUE ~ "Other")) %>%
+  rename(race = case_race)
+
+
+m2
+
+#### Investigate each district court ####
+ left_join(pop_race_percent, m2, 
+                           by = c("race", "district_court")) %>%
+  filter(district_court == "Ayer District Court") %>%
+  pivot_longer(cols = c(pop_percent, case_percent),
+              names_to = "type",
+              values_to = "value") %>%
+   ggplot(aes(x = factor(race, levels = c("white", "black", "hispanic")), 
+              y = value, fill = forcats::fct_rev(type))) +
+   geom_col(position = "dodge") +
+   theme_minimal() +
+  scale_fill_manual(name = "Race",
+                    values = c("salmon", "dodgerblue"),
+                    breaks = c("pop_percent", "case_percent"),
+                    labels = c("% Total population", "% Total cases")) +
+  labs(title = "Cases by Population (by Race)", 
+       x = "",
+       y = "") +
+  geom_text(aes(label = percent(value), y = value), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  scale_y_continuous(limits = c(0,1), labels = percent_format()) +
+  theme(legend.position = "top")
+
+
+ 
   
+mid_dis
+total_pop
 
+total_sum_count <- left_join(mid_dis, total_pop, by = "district_court") %>%
+  pivot_longer(cols = -district_court, names_to = "type", values_to = "value")
+
+saveRDS(total_sum_count, file = "shiny-app/data/total_sum_count.rds")
+
+total_sum_count %>%
+  ggplot(aes(x = district_court, y = value, fill = type)) +
+  geom_col(position = "dodge") + 
+  labs(title = "Cases by Total Population served",
+       subtitle = "District courts, Middlesex County",
+       x = "",
+       y = "Population") +
+  scale_fill_manual(name = "",
+                    values = c("red", "blue"),
+                    breaks = c("count", "sum"),
+                    labels = c("Total cases", "Population served")) +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  coord_flip()
+  
 
 ```
 
 ```{r}
 
+
+m3 <- middlesex_district %>% 
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>%
+  select(case_number, court_location, filing_offense_diff, dispo_filing_diff) %>%
+  pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length")
+####
+
+m3 %>%
+  filter(court_location == "Lowell District Court") %>%
+  filter(stage == "dispo_filing_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") + 
+  labs(title = "Total cases by the number of days \n between filing date and disposition date",
+       x = "# of days", y = "Total cases with # days") +
+  theme_minimal() +
+  geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) 
+
+m3 %>% 
+  filter(court_location == "Lowell District Court") %>%
+  filter(stage == "filing_offense_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) 
+
+
+saveRDS(m3, file = "shiny-app/data/m3.rds")
+
+  
+# fill = forcats::fct_rev(stage))
+```
+
+```{r}
+m4 <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>%
+
+    select(-criminal_count_number, -charge_crime_code, -charge_crime_description,
+           charge_crime_type, -defendant_gender, -name_of_judge, -disposition_code,
+           -disposition_description, -sentence_recommended, -sentence_type, 
+           -sentence_description) %>%
+  mutate(defendant_race = case_when(defendant_race == "W" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" ~ "Hispanic",
+                          TRUE ~ "Other")) %>%
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   ))
+
+m4 %>%
+  filter(court_location == "Ayer District Court") %>%
+  ggplot(aes(x = date_of_filing, y = filing_offense_diff), color = "blue") +
+    geom_line() +
+    geom_line(data = m4, aes(x = disposition_date, y = dispo_filing_diff), color = "red") 
+  
+```
+
+
+```{r leaflet}
+leaflet() %>%
+  addTiles() %>%
+  addMarkers(lng=174.768, lat=-36.852, popup="The birthplace of R")
 ```
 
