@@ -38,8 +38,8 @@ shinyServer(function(input, output) {
 
 # First table 
   
-  output$middle_table <- render_gt({
-    middle_table %>% 
+  output$middle_table <- gt::render_gt({
+    middle_table <- middle_table %>% 
       gt()
     })
 
@@ -47,7 +47,7 @@ shinyServer(function(input, output) {
   
   output$mid_dis <- renderPlot({
     mid_dis %>% 
-      ggplot(aes(x = fct_reorder(district_court, count), fill = district_court)) +
+      ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
       geom_col(aes(y = count)) +
       geom_text(aes(label = comma(count), y = count), 
                 nudge_y = 1100, size = 3) + 

@@ -19,77 +19,6 @@ library(scales)
 
 ```
 
-```{r juvenile}
-juvenile_stats_2014 <- read_excel("raw_data/Juvenile_stats_2014.xlsx") %>%
-  clean_names() %>% 
-  select(!total) %>%
-  mutate(year = 2014)
-
-juvenile_stats_2015 <- read_excel("raw_data/Juvenile_stats_2015.xlsx") %>%
-  clean_names() %>% 
-  select(!grand_total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2015)
-
-juvenile_stats_2016 <- read_excel("raw_data/Juvenile_stats_2016.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2016) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2017 <- read_excel("raw_data/Juvenile_stats_2017.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2018 <- read_excel("raw_data/Juvenile_stats_2018.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2018) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_stats_2019 <- read_excel("raw_data/Juvenile_stats_2019.xlsx") %>%
-  clean_names() %>%
-  select(!total) %>%
-  rename(barnstable = barnstable_town_of_plymouth) %>%
-  mutate(year = 2019) %>%
-  mutate(suffolk = round(suffolk),
-         bristol = round(bristol),
-         essex = round(essex),
-         hampden = round(hampden),
-         middlesex = round(middlesex),
-         worcester = round(worcester))
-
-juvenile_6_years <- 
-  bind_rows(list(juvenile_stats_2014, juvenile_stats_2015,
-                 juvenile_stats_2016, juvenile_stats_2017,
-                 juvenile_stats_2018, juvenile_stats_2019),
-            .id = "year") %>% 
-  mutate(year = as.numeric(year) + 2013) %>%
-  group_by(year)
-
-saveRDS(juvenile_stats_2014, file = "shiny-app/data/juvenile_stats_2014.rds")
-saveRDS(juvenile_6_years, file = "shiny-app/data/juvenile_6_years.rds")
-```
-
 
 ```{r county}
 # Find variables in ACS
@@ -454,7 +383,7 @@ saveRDS(mid_dis, file = "shiny-app/data/mid_dis.rds")
 
 
 mid_dis_plot <- mid_dis %>% 
-  ggplot(aes(x = fct_reorder(district_court, count), fill = district_court)) +
+  ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
     geom_col(aes(y = count)) +
     geom_text(aes(label = comma(count), y = count), 
               nudge_y = 1100, size = 3) + 
@@ -621,6 +550,7 @@ case_pop_race %>%
   scale_y_continuous(limits = c(0,1), labels = percent_format()) +
   theme(legend.position = "top")
 
+class(middle_table)
 
 ```
 

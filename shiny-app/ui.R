@@ -80,7 +80,7 @@ tabPanel("About",
             started and ended within 2014-2019, I found that there are 88,651 cases recorded 
             within 6 years. Here are more details of cases by types of courts:"),
             p(em("Table 1. Total cases by Court types"), align = "center"),
-            withSpinner(gt_output(outputId = "middle_table")),
+            withSpinner(gt::gt_output("middle_table")),
             br(),
             splitLayout(cellWidths = c("70%", "30%"),
             p(em("Figure 1: Total cases in District Courts")),
