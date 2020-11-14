@@ -620,15 +620,7 @@ m3a %>%
 
 
 ```{r leaflet}
-join_pop
-map <- left_join(join_pop, pop_race_percent, by = "district_court")
 
-
-leaflet(map) %>%
-  addTiles() %>%
-  addPolygons(fillColor = topo.colors(10, alpha = 0.8))
-
-middlemap <- st_read("raw_data/tl_2017_25017_roads.shp")
   
 ```
 
@@ -682,13 +674,19 @@ disposition <- middlesex_2 %>%
     filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
                                   "LSUP", "MSUP", 
                                   "NA", "OTH")) %>% 
-  select(case_number, court_location, disposition_description, defendant_race) 
+  select(case_number, court_location, disposition_description, defendant_race)
 
 dispo_category <- read_excel("raw_data/disposition_category.xlsx") %>%
   clean_names() %>%
   mutate(disposition_description = gsub("\\d+", "", disposition_description)) %>%
   mutate(disposition_description = gsub('\"', "", disposition_description)) %>%
-  mutate(disposition_description = gsub("\\[|\\]", "", disposition_description)) 
+  mutate(disposition_description = gsub("\\[|\\]", "", disposition_description)) %>%
+  rename(type = disposition_type) %>%
+  mutate(disposition_description = trimws(disposition_description, 
+                                          "both", whitespace = "[\\h\\v]"))
+
+unique(disposition$disposition_description)
+unique(dispo_category$disposition_description)
 
 
 dispo <- left_join(disposition, dispo_category, by = "disposition_description")
