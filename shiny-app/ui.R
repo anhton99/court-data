@@ -114,8 +114,8 @@ tabPanel("About",
             p(em("Figure 4: Cases as % Total Population served")),
             p(em("Table 2: Summary of cases as % total population"))),
             splitLayout(cellWidths = c("70%", "30%"),
-            plotOutput("sum_count"),
-            gt_output(outputId = "sum_count_mid")),
+            plotOutput("sum_count_pt"),
+            gt_output(outputId = "sum_count")),
             h4("Moving through the system"),
             p("How fast a case moves through the system is critical to assessing court 
             efficiency. There are 3 time points representing 2 stages by which a case 
@@ -124,7 +124,8 @@ tabPanel("About",
             of the case was determined. In the interactive plot below, we can see the 
             number of days it takes for each court to handle a case. While most cases 
             go through the first stage from offense date to filing date quickly 
-            (~10-20 days), it takes much longer for the court to dispose of the case. 
+            (~10-20 days), it takes much longer for the court to dispose of the case 
+            (~ 150-200 days).
             Figure 6 is an interactive plot showing how the duration of each stage 
             vary among courts."),
             br(),
@@ -132,7 +133,7 @@ tabPanel("About",
                  court system")),
             sidebarLayout(sidebarPanel(
                     h3("From Offense to Filing"),
-                    selectInput("court_location",
+                    selectInput("district_court",
                                 label = "Choose a District Court:",
                                 choices = c("Ayer District Court",
                                             "Cambridge District Court",

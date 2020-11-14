@@ -21,12 +21,11 @@ library(gt)
 library(shinycssloaders)
 
 slc_value <- readRDS("data/slc_value.rds")
-mid_race_percent <- readRDS("data/mid_race_percent.rds")
 middle_table <- readRDS(middle_table, file = "data/middle_table.rds")
-sum_count_mid <- readRDS(sum_count_mid, file = "data/sum_count_mid.rds")
+mid_race_percent <- readRDS("data/mid_race_percent.rds")
+sum_count_pt <- readRDS(sum_count_pt, file = "data/sum_count_pt.rds")
 mid_dis <- readRDS(mid_dis, file = "data/mid_dis.rds")
 mid_sup <- readRDS(mid_sup, file = "data/mid_sup.rds")
-sum_count <- readRDS(sum_count, file = "data/sum_count.rds")
 total_sum_count <- readRDS(total_sum_count, file = "data/total_sum_count.rds")
 m3 <- readRDS(total_sum_count, file = "data/m3.rds")
 case_pop_race <- readRDS(case_pop_race, file = "data/case_pop_race.rds")
@@ -34,20 +33,18 @@ case_pop_race <- readRDS(case_pop_race, file = "data/case_pop_race.rds")
 
 
 
-shinyServer(function(input, output) {
 
-# First table 
+# plot mid_dis 
+shinyServer(function(input, output){
   
   output$middle_table <- gt::render_gt({
     middle_table <- middle_table %>% 
       gt()
-    })
-
-# plot mid_dis 
+  })
   
   output$mid_dis <- renderPlot({
     mid_dis %>% 
-      ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
+      ggplot(aes(x = fct_reorder(district_court, count), fill = district_court)) +
       geom_col(aes(y = count)) +
       geom_text(aes(label = comma(count), y = count), 
                 nudge_y = 1100, size = 3) + 
@@ -84,8 +81,8 @@ shinyServer(function(input, output) {
 
 # Table 
   
-  output$sum_count_mid <- render_gt({
-    sum_count_mid %>% 
+  output$sum_count <- render_gt({
+    sum_count_pt %>% 
       summarize(min = percent(min(count)), 
                 median = percent(median(count)),
                 max = percent(max(count)),) %>% 
@@ -93,29 +90,33 @@ shinyServer(function(input, output) {
                    names_to = "summary", values_to = "value") %>%
       gt() %>%
       tab_header(title = "Total cases as % of Population served",
-                 subtitle = "12 district courts, Middlesex County, MA")
+                 subtitle = "12 district courts in Middlesex County")
   })
 
 # Plot sum_count
-  output$sum_count <- renderPlot({
+  output$sum_count_pt <- renderPlot({
     
-    sum_count %>%
-      ggplot(aes(x = fct_reorder(district_court, order),
-                 y = number,
-                 fill = fct_reorder(ratio, -number))) +
-      geom_col() +
-      labs(title = "Total Cases as % Total Population served",
+    sum_count_pt %>%
+      pivot_longer(cols = -district_court, 
+                   names_to = "ratio", 
+                   values_to = "value") %>%
+      mutate(order = rep(seq(1, 12, by = 1), each = 2)) %>% 
+      mutate(order = rev(order)) %>% 
+      ggplot(aes(x = fct_reorder(district_court, order), 
+                 y = value, fill = forcats::fct_rev(ratio))) +
+      geom_col(position = "stack") +
+      coord_flip() +
+      labs(title = "Cases as % Total Population served",
            subtitle = "District courts, Middlesex County",
            x = "",
            y = "Population") +
       scale_fill_manual(name = "",
                         values = c("red", "blue"),
-                        breaks = c("count", "sum"),
+                        breaks = c("count", "stack"),
                         labels = c("Total cases", "Population served")) +
       scale_y_continuous(labels = percent_format()) +
       theme_minimal() +
-      theme(legend.position = "bottom") +
-      coord_flip()
+      theme(legend.position = "bottom")
     
   })
   
@@ -143,7 +144,7 @@ shinyServer(function(input, output) {
   output$dispo_offense <- renderPlot({
     
     m3 %>% 
-      filter(court_location == input$court_location) %>%
+      filter(district_court == input$district_court) %>%
       filter(stage == input$stage) %>%
       ggplot(aes(x = length)) +
       geom_histogram(bins = 1000, fill = "blue3") +
@@ -160,7 +161,7 @@ shinyServer(function(input, output) {
   output$filing_dispo <- renderPlot({
     
     m3 %>%
-      filter(court_location == input$district_court_2) %>%
+      filter(district_court == input$district_court_2) %>%
       filter(stage == "dispo_filing_diff") %>%
       ggplot(aes(x = length)) +
       geom_histogram(bins = 1000, fill = "blue3") + 
@@ -235,7 +236,8 @@ shinyServer(function(input, output) {
     
     
     
-})     
+})
+
         
 
 
