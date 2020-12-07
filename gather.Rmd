@@ -1,0 +1,1488 @@
+---
+title: "gather"
+author: "Anh"
+date: "10/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(janitor)
+library(tidycensus)
+library(viridis)
+library(lubridate)
+library(janitor)
+library(scales)
+library(gt)
+library(tidymodels)
+library(sf)
+library(rgdal)
+library(ggmap)
+library(leaflet)
+library(rstanarm)
+library(gtsummary)
+library(broom.mixed)
+```
+
+```{r readRDS}
+
+# readRDS 
+
+# I don't want R to rerun the setup chunk everytime 
+# I add readRDS to it
+
+# Therefore: separate chunk for readRDS
+
+middlesex_race <- readRDS("shiny-app/data/middlesex_race.rds")
+middlesex_5_years <- readRDS("shiny-app/data/middlesex_5_years.rds")
+middlesex_1 <- readRDS("shiny-app/data/middlesex_1.rds")
+middlesex_2 <- readRDS("shiny-app/data/middlesex_2.rds")
+middlesex_3 <- readRDS("shiny-app/data/middlesex_3.rds")
+middle_table <- readRDS("shiny-app/data/middle_table.rds")
+middlesex_district <- readRDS("shiny-app/data/middlesex_district.rds")
+mid_dis <- readRDS("shiny-app/data/mid_dis.rds")
+join_pop <- readRDS("shiny-app/data/join_pop.rds")
+sum_count_pt <- readRDS("shiny-app/data/sum_count_pt.rds")
+
+pop_race_court <- readRDS("shiny-app/data/pop_race_court.rds")
+race_court <- readRDS("shiny-app/data/race_court.rds")
+pop_race_total <- readRDS("shiny-app/data/pop_race_total.rds")
+ratio_case_total <- readRDS("shiny-app/data/ratio_case_total.rds")
+
+case_pop_race <- readRDS("shiny-app/data/case_pop_race.rds")
+total_sum_count <- readRDS("shiny-app/data/total_sum_count.rds")
+
+m3 <- readRDS("shiny-app/data/m3.rds")
+
+summary_count_case <- readRDS("shiny-app/data/summary_count_case.rds")
+
+disposition <- readRDS("shiny-app/data/disposition.rds")
+
+dispo_category <- readRDS("shiny-app/data/dispo_category.rds")
+dispo <- readRDS("shiny-app/data/dispo.rds")
+dispo_categories <- readRDS("shiny-app/data/dispo_categories.rds")
+
+join_count_dispo <- readRDS("shiny-app/data/join_count_dispo.rds")
+join_adverse <- readRDS("shiny-app/data/join_adverse.rds")
+
+offense_categories <- readRDS("shiny-app/data/offense_categories.rds")
+
+decline_adverse_join <- readRDS("shiny-app/data/decline_adverse_join.rds")
+decline_type <- readRDS("shiny-app/data/decline_type.rds")
+
+model_1 <- readRDS("shiny-app/data/model_1.rds")
+model_1_tibble <- readRDS("shiny-app/data/model_1_tibble.rds")
+
+```
+
+```{r demographics - race map}
+
+# racial population by county
+
+racial_variables <- c(White = "B03002_003", Black = "B03002_004",
+                      Asian = "B03002_006", Hispanic = "B03002_012")
+
+county_race <- get_acs(geography = "county",
+                       state = "MA",
+                       variables = racial_variables,
+                       summary_var = "B03002_001",
+                       year = 2018) %>%
+  filter(NAME == "Middlesex County, Massachusetts")
+glimpse(county_race)
+
+#racial proportion by county 
+
+county_race_prop <- county_race %>%
+  mutate(pct = 100 * (estimate/summary_est)) %>%
+  select(NAME, variable, pct)
+
+county_race_prop
+
+# middlesex racial proportion
+
+middlesex_race <- get_acs(geography = "tract",
+                  variables = racial_variables, 
+                  year = 2018,
+                  state = "MA",
+                  county = "Middlesex County",
+                  geometry = TRUE,
+                  summary_var = "B03002_001")
+
+# saveRDS
+
+middlesex_race
+saveRDS(middlesex_race, file = "shiny-app/data/middlesex_race.rds")
+
+middlesex_race_map <- middlesex_race %>%
+  mutate(Percent = 100 * (estimate / summary_est)) %>%
+  ggplot(aes(fill = Percent, color = Percent)) +
+  facet_wrap(~ variable) +
+  geom_sf() +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  labs(
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+```
+
+
+```{r demographics - median income}
+
+# Median Income value for Middlesex 
+
+middlesex_income_value <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Middlesex County",
+                    geometry = TRUE)
+
+middlesex_income_map <- get_acs(geography = "tract", 
+                    variables = "B19013_001", 
+                    state = "MA",
+                    county = "Middlesex County",
+                    geometry = TRUE) %>%
+  ggplot(aes(fill = estimate, color = estimate)) +
+  geom_sf() +
+  scale_fill_viridis_c(name = "Median Income", direction = -1) +
+  scale_color_viridis_c(name = "Median Income", direction = -1) +
+  labs(
+       caption = "Source: American Community Survey 2014-2018") +
+  theme_void()
+
+```
+
+
+```{r PROSECUTION DATA WRANGLING}
+
+# Caseload management overview 
+
+middlesex_5_years <- read_excel("~/Desktop/Gov-50/court-data/raw_data/Middlesex_2014_to_2019.xlsx")
+
+saveRDS(middlesex_5_years, file = "shiny-app/data/middlesex_5_years.rds")
+
+middlesex_1 <- middlesex_5_years %>% 
+  clean_names() %>%
+  group_by(case_number) %>%
+  mutate(offense_date = as_date(offense_date),
+         date_of_filing = as_date(date_of_filing),
+         disposition_date = as_date(disposition_date)) 
+
+saveRDS(middlesex_1, file = "shiny-app/data/middlesex_1.rds")
+
+# Calculate difference between date of filing date, offense date, and 
+# disposition date
+
+# original data = 343,099 rows 
+
+middlesex_2 <- middlesex_1 %>% 
+
+# filter to only cases that happened and got resolved between 2014-2019
+# this leaves us with 285,639 rows 
+  
+  filter(offense_date >= "2014-01-01", offense_date <= "2019-12-31", 
+         date_of_filing >= "2014-01-01", date_of_filing <= "2019-12-31", 
+         disposition_date >= "2014-01-01", disposition_date <= "2019-12-31") %>%
+
+# calculate the time lapse between each stage of the case process 
+  
+  mutate(filing_offense_diff = as.double(difftime(date_of_filing, offense_date, 
+                                                  units = "days"))) %>%
+  mutate(dispo_offense_diff = as.double(difftime(disposition_date,
+                                                       offense_date, 
+                                                 units = "days"))) %>% 
+  mutate(dispo_filing_diff = as.double(difftime(disposition_date, date_of_filing, 
+                                         units = "days"))) %>%
+  mutate(total_diff = as.double(difftime(disposition_date, offense_date, 
+                                         units = "days"))) %>%
+  
+# filter to only when the time lapse is bigger than 0
+# this is because if time lapse < 0, there is an error 
+# in recording the dates 
+
+  filter(filing_offense_diff > 0, 
+         dispo_offense_diff > 0, 
+         dispo_filing_diff > 0,
+         total_diff > 0)
+
+saveRDS(middlesex_2, file = "shiny-app/data/middlesex_2.rds")
+
+# the results leave us with 191,062 rows
+# rename middlesex_2 
+
+# OVERVIEW OF CASELOAD MANAGEMENT
+# Court efficiency measured by cases
+
+# A table summary of cases for each type of court 
+
+middle_table <- middlesex_2 %>%
+  mutate(court_location = ifelse(!court_location %in% 
+                             c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH"),
+                           "District Court", court_location)) %>%
+  
+  mutate(court_location = ifelse(court_location %in% 
+                             c("CAMJU", "FRAJU", "LOWJU", "WALJU"
+                                  ),
+                           "Juvenile Court", court_location)) %>%
+  
+  mutate(court_location = ifelse(court_location %in% 
+                             c("LSUP", "MSUP"
+                                  ),
+                           "Superior Court", court_location)) %>% 
+  mutate(court_location = ifelse(court_location ==
+                             "OTH",
+                           "Other", court_location)) %>%
+  mutate(court_location = ifelse(court_location ==
+                             "NA",
+                           "N/A", court_location)) %>%
+
+# select to do unique 
+  
+  select(case_number, court_location) %>%
+
+# unique to ensure each case is counted once 
+  
+  unique() %>%
+  
+# 88,651 for all court cases 
+  
+  group_by(court_location) %>%
+  summarize(count = n(), .groups = "drop") %>% 
+  arrange(desc(count)) %>% 
+  pivot_wider(names_from = court_location, 
+              values_from = count)
+
+# We have a table for all cases in each court type in the past 6 years
+
+saveRDS(middle_table, file = "shiny-app/data/middle_table.rds")
+
+
+middle_table %>% gt()
+
+# We look only to investigate cases that go through
+# district and superior courts 
+
+# District courts 
+
+middlesex_district <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>%
+
+    select(case_number, court_location, department_filing_charge,
+           name_of_judge, filing_offense_diff, dispo_offense_diff, 
+           dispo_filing_diff, total_diff, defendant_race, 
+           defendant_ethnicity) %>%
+    group_by(court_location) %>%
+
+# make sure the same case is not counted more than once 
+  
+    unique() %>%
+    mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>%
+   rename(district_court = court_location) %>%
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          TRUE ~ "Other")) 
+
+saveRDS(middlesex_district, file = "shiny-app/data/middlesex_district.rds")
+
+# In total, we have 84,148 cases in District Courts in the past 6 years 
+
+## Total Cases by District Courts in Middlesex, MA ##
+
+# We have 12 district courts 
+
+mid_dis <- middlesex_district %>%
+  group_by(district_court) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count)) 
+
+saveRDS(mid_dis, file = "shiny-app/data/mid_dis.rds")
+
+mid_dis_plot <- mid_dis %>% 
+  ggplot(aes(x = fct_reorder(district_court, count), fill = district_court)) +
+    geom_col(aes(y = count)) +
+    geom_text(aes(label = comma(count), y = count), 
+              nudge_y = 1100, size = 3) + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(legend.position = "none") +
+    scale_y_continuous(labels = comma_format()) + 
+    labs(title = "Total Cases by District Courts in Middlesex, MA",
+         subtitle = "Year: 2014-2019",
+         x = "",
+         y = "")
+
+
+## Total Cases by Superior Courts in Middlesex, MA ##
+
+middlesex_sup <- middlesex_2 %>%
+
+    filter(court_location %in% c("LSUP", "MSUP" 
+                                  )) %>%
+
+    select(case_number, court_location, department_filing_charge,
+           name_of_judge, filing_offense_diff, dispo_offense_diff, total_diff) %>%
+    group_by(court_location) %>%
+    unique()
+
+mid_sup <- middlesex_sup %>%
+  group_by(court_location) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count)) %>%
+  mutate(court_location = case_when(court_location == "MSUP" ~ "Middlesex County Superior Court",
+                                    court_location == "LSUP" ~ "Lowell Superior Court",
+                                    TRUE ~ "Other"))
+
+saveRDS(mid_sup, file = "shiny-app/data/mid_sup.rds")
+
+mid_sup_plot <- mid_sup %>% 
+  ggplot(aes(x = fct_reorder(court_location, count), fill = court_location)) +
+    geom_col(aes(y = count)) +
+    geom_text(aes(label = comma(count), y = count), nudge_y = 50, size = 3) +
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = comma_format()) + 
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(title = "Total Cases by Superior Courts in Middlesex, MA",
+         subtitle = "Year: 2014-2019",
+         x = "",
+         y = "") +
+   scale_x_discrete(labels = c("Lowell \n Superior Court", 
+                                "Middlesex County \n Superior Court"))
+
+
+```
+
+
+```{r population}
+
+# population for cities served by courts 
+
+uszips <- read_excel("raw_data/uszips.xlsx") %>% 
+          filter(state_id == "MA", county_name == "Middlesex")
+
+city_and_court <- read_excel("raw_data/city and court.xlsx")
+
+join_pop <- inner_join(uszips, city_and_court, by = "city") %>%
+  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
+                                 "Somerville District Court",
+                                 district_court)) %>% 
+  mutate(zip = sprintf('%05d', zip))
+
+
+saveRDS(join_pop, file = "shiny-app/data/join_pop.rds")
+
+
+# total population served by court 
+
+total_pop <- join_pop %>% 
+  select(population, district_court, city) %>%
+  group_by(district_court) %>%
+  summarise(sum = sum(population), .groups = "drop")
+  
+sum_count_pt <- left_join(mid_dis, total_pop,
+                    by = "district_court") %>%
+  mutate(count = count/sum,
+         stack = 1 - count) %>%
+  select(-sum) %>%
+  arrange(desc(count)) 
+
+sum_count_pt_plot <- sum_count_pt %>%
+  pivot_longer(cols = -district_court, 
+               names_to = "ratio", 
+               values_to = "value") %>%
+  mutate(order = rep(seq(1, 12, by = 1), each = 2)) %>% 
+  mutate(order = rev(order)) %>% 
+  ggplot(aes(x = fct_reorder(district_court, order), 
+             y = value, fill = forcats::fct_rev(ratio))) +
+  geom_col(position = "stack") +
+  coord_flip() +
+  labs(title = "Cases as % Total Population served",
+       subtitle = "District courts, Middlesex County",
+       x = "",
+       y = "Population") +
+  scale_fill_manual(name = "",
+                    values = c("red", "blue"),
+                    breaks = c("count", "stack"),
+                    labels = c("Total cases", "Population served")) +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+saveRDS(sum_count_pt, file = "shiny-app/data/sum_count_pt.rds")
+
+sum_count_table <- sum_count_pt %>% 
+  summarize(min = percent(min(count)), 
+            median = percent(median(count)),
+            max = percent(max(count)),) %>% 
+  pivot_longer(cols = everything(), 
+               names_to = "summary", values_to = "value") %>%
+  gt() %>%
+  tab_header(title = "Total cases as % of Population served",
+             subtitle = "12 district courts in Middlesex County")
+
+
+```
+
+```{r case by population}
+
+# get total population 
+
+pop_race_total <- pop_race %>%
+  pivot_wider(id_cols = c(zip, district_court), 
+              names_from = variable, values_from = estimate) %>%
+  group_by(district_court) %>%
+  summarize(total_white = sum(White),
+            total_black = sum(Black),
+            total_asian = sum(Asian),
+            total_hispanic = sum(Hispanic),
+            .groups = "drop") %>%
+  mutate(district_court = ifelse(district_court == "Somerville District Court Office",
+                                 "Somerville District Court",
+                                 district_court))
+saveRDS(pop_race_total, file = "shiny-app/data/pop_race_total.rds")
+# sum count served 
+     
+total_sum_count <- left_join(mid_dis, total_pop, 
+                             by = "district_court") %>% 
+  pivot_longer(cols = -district_court, 
+               names_to = "type", values_to = "value")
+
+saveRDS(total_sum_count, file = "shiny-app/data/total_sum_count.rds")
+
+total_sum_count %>%
+  ggplot(aes(x = fct_reorder(district_court, value), y = value, fill = type)) +
+  geom_col(position = "dodge") + 
+  labs(title = "Cases by Total Population served",
+       subtitle = "District courts, Middlesex County",
+       x = "",
+       y = "Population") +
+  scale_fill_manual(name = "",
+                    values = c("red", "blue"),
+                    breaks = c("count", "sum"),
+                    labels = c("Total cases", "Population served")) +
+  theme_minimal() +
+  scale_y_continuous(labels = number_format()) +
+  theme(legend.position = "bottom") +
+  coord_flip()
+  
+
+```
+
+
+```{r case by racial population}
+
+race <- get_acs(geography = "zcta", 
+                           variables = c(White = "B03002_003", 
+                                         Black = "B03002_004",
+                      Asian = "B03002_006", Hispanic = "B03002_012")) %>% 
+  rename(zip = GEOID)
+
+pop_race <- left_join(join_pop, race, by = "zip")
+
+# district court, population served by race
+
+pop_race_court <- pop_race %>% select(district_court, variable, estimate)
+
+saveRDS(pop_race_court, file = "shiny-app/data/pop_race_court.rds")
+
+pop_race_total <- pop_race %>% 
+  select(variable, estimate) %>% 
+  group_by(variable) %>%
+  summarize(sum = sum(estimate)) %>% 
+  mutate(total_pop = sum(sum)) %>% 
+  mutate(percent = sum/total_pop) %>% 
+  mutate(percent = round(percent, 3)) %>% 
+  rename(race = variable)
+
+# Case by population by Race (All Court Districts)
+
+case_pop_race <- middlesex_district %>% 
+  group_by(district_court, defendant_race) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  pivot_wider(names_from = defendant_race, values_from = count) %>%
+  clean_names() %>% 
+  summarize(black = sum(black),
+                white = sum(white),
+                hispanic = sum(hispanic)) %>%
+      mutate(Black = black/84148,
+             White = white/84148,
+             Hispanic = hispanic/84148) %>% 
+      select(Black, White, Hispanic) %>%
+  pivot_longer(cols = everything(), names_to = "race", 
+               values_to = "cases") %>%
+  left_join(pop_race_total %>% select(race, percent), by = "race") %>% 
+  pivot_longer(cols = -race, names_to = "yes", values_to = "value") %>%
+  mutate(race = as_factor(race))
+
+saveRDS(case_pop_race, file = "shiny-app/data/case_pop_race.rds")
+
+case_pop_plot <- case_pop_race %>% 
+  ggplot(aes(x = factor(race, levels = c("White", "Black", "Hispanic")), 
+             y = value, fill = forcats::fct_rev(yes))) +
+  geom_col(position = "dodge") +
+  theme_minimal() +
+  scale_fill_manual(name = "Race",
+                    values = c("salmon", "dodgerblue"),
+                    breaks = c("percent", "cases"),
+                    labels = c("% Total population", "% Total cases")) +
+  labs(title = "Cases by Population (by Race)",
+       subtitle = "All District Courts, Middlesex County",
+       x = "",
+       y = "") +
+  geom_text(aes(label = percent(value), y = value), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  scale_y_continuous(limits = c(0,1), labels = percent_format()) +
+  theme(legend.position = "top")
+  
+```
+
+```{r case duration}
+
+# Case duration
+
+# select relevant data and pivot 
+# from data object middlesex_district
+
+m3 <- middlesex_district %>%
+  select(case_number, district_court, filing_offense_diff, dispo_filing_diff) %>%
+  pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length")
+
+saveRDS(m3, file = "shiny-app/data/m3")
+
+# disposition and filing by court  
+
+m3 %>%
+  filter(district_court == "Lowell District Court") %>%
+  filter(stage == "dispo_filing_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") + 
+  labs(title = "Total cases by the number of days \n between filing date and disposition date",
+       x = "# of days", y = "Total cases with # days") +
+  theme_minimal() +
+  geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) 
+
+# filing and offense by court 
+
+m3 %>% 
+  filter(district_court == "Lowell District Court") %>%
+  filter(stage == "filing_offense_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) 
+
+# Black versus White for filing offense 
+
+middlesex_district %>%
+  select(case_number, district_court, 
+         filing_offense_diff, dispo_filing_diff, defendant_race) %>% 
+  pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length") %>%
+  filter(district_court == "Lowell District Court") %>%
+  filter(defendant_race %in% c("Black", "White")) %>%
+  filter(stage == "filing_offense_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) +
+  facet_wrap(~defendant_race)
+
+#Black versus White for disposition filing 
+
+middlesex_district %>%
+  select(case_number, district_court, 
+         filing_offense_diff, dispo_filing_diff, defendant_race) %>% 
+  pivot_longer(cols = c(filing_offense_diff, dispo_filing_diff),
+               names_to = "stage",
+               values_to = "length") %>%
+  filter(district_court == "Lowell District Court") %>%
+  filter(defendant_race %in% c("Black", "White")) %>%
+  filter(stage == "dispo_filing_diff") %>%
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 1000, fill = "blue3") +
+    labs(title = "Total cases by the number of days \n between offense date and filing date", 
+         x = "# of days", y = "Total cases with # days") + 
+  theme_minimal() +
+    geom_vline(aes(xintercept = median(length), color = "median")) + 
+  scale_color_manual(name = "", values = c(median = "red")) +
+  facet_wrap(~defendant_race)
+
+# Black and White for all courts 
+
+middlesex_district %>%
+  select(case_number, district_court, 
+         filing_offense_diff, dispo_filing_diff, defendant_race) %>% 
+  filter(defendant_race %in% c("Black", "White")) %>%
+  group_by(defendant_race) %>% 
+  summarize(min = min(filing_offense_diff), 
+            median = median(filing_offense_diff),
+            max = max(filing_offense_diff)) 
+```
+
+
+
+```{r crime count}
+
+# crime cout analysis 
+
+sum_count <- middlesex_2 %>% 
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>%
+  select(case_number) %>%
+  group_by(case_number) %>%
+  summarize(sum_count = n(), .groups = "drop") 
+
+
+count <- left_join(middlesex_district, sum_count, by = "case_number") 
+
+# total cases by race for all districts 
+total_race_court <- race_court %>% 
+  select(variable, case_court) %>% 
+  filter(variable %in% c("Black", "White", "Hispanic")) %>% 
+  group_by(variable) %>%
+  summarize(case_sum = sum(case_court)) %>% 
+  rename(defendant_race = variable)
+
+# summary table of total counts, total cases, and its ratio by race for all districts 
+
+summary_count_case <- count %>% 
+  filter(defendant_race %in% c("Black", "White", "Hispanic")) %>%
+  select(defendant_race, sum_count) %>% 
+  group_by(defendant_race) %>%
+  summarize(count_sum = sum(sum_count)) %>%
+  left_join(total_race_court, by = "defendant_race") %>% 
+  mutate(ratio = count_sum/case_sum) %>% 
+  mutate(ratio = round(ratio, digits = 2))
+
+saveRDS(summary_count_case, file = "shiny-app/data/summary_count_case.rds")
+
+
+summary_count_case %>% 
+  gt() %>% 
+  tab_header(title = "Summary of Criminal Counts by Race",
+             subtitle = "Examining total criminal counts by total caseload for differant racial groups") %>% 
+  cols_label(defendant_race = "Race",
+             count_sum = "Total counts",
+             case_sum = "Total cases", 
+             ratio = "Ratio")
+
+
+```
+
+
+```{r disposition}
+
+# disposition analysis 
+
+# firt, investigate the data to see any abnormalities
+
+middlesex_2 %>% filter(case_number == "14-01-479875")
+
+# see a case with 57 counts 
+
+middlesex_2 %>% 
+  filter(case_number == "19-06-648254") %>%
+  summarize(max = max(criminal_count_number))
+
+# 57 times being filed on the same day with 2 charges ????
+# All happening the same day - why are SO many times recorded? 
+# what kind of effect this will have for one's profile 
+# what number of counts is reasonable to categorize? 
+
+disposition <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  select(case_number, court_location, disposition_description, defendant_race, defendant_ethnicity) %>% 
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) 
+
+saveRDS(disposition, file = "shiny-app/data/disposition.rds") 
+
+dispo_category <- read_excel("raw_data/disposition_category.xlsx") %>%
+  clean_names() %>%
+  mutate(disposition_description = gsub("\\d+", "", disposition_description)) %>%
+  mutate(disposition_description = gsub('\"', "", disposition_description)) %>%
+  mutate(disposition_description = gsub("\\[|\\]", "", disposition_description)) %>%
+  rename(type = disposition_type) %>%
+  mutate(disposition_description = trimws(disposition_description, 
+                                          "both", whitespace = "[\\h\\v]"))
+
+saveRDS(dispo_category, file = "shiny-app/data/dispo_category.rds") 
+
+
+dispo <- left_join(disposition, dispo_category, by = "disposition_description") %>% 
+  mutate(type = ifelse(is.na(type), "Dismissed", type)) %>% 
+  mutate(court_location = case_when(
+                   court_location == "AYE" ~ "Ayer District Court",
+                   court_location == "CAM" ~ "Cambridge District Court",
+                   court_location == "CON" ~ "Concord District Court",
+                   court_location == "FRA" ~ "Framingham District Court",
+                   court_location == "LOW" ~ "Lowell District Court",
+                   court_location == "MAL" ~ "Malden District Court",
+                   court_location == "MAR" ~ "Marlborough District Court",
+                   court_location == "NAT" ~ "Natick District Court",
+                   court_location == "NEW" ~ "Newton District Court",
+                   court_location == "SOM" ~ "Somerville District Court",
+                   court_location == "WAL" ~ "Waltham District Court",
+                   court_location == "WOB" ~ "Woburn District Court",
+                   TRUE ~ "Yes"
+                   )) %>% 
+  rename(district_court = court_location) %>% 
+  select(case_number, district_court, defendant_race, type) 
+
+saveRDS(dispo, file = "shiny-app/data/dispo.rds") 
+
+dispo_categories <- 
+  dispo %>% 
+  mutate(type = ifelse(type == "Not dismissed, not convicted", 
+                       "CWOF, Pre-trial Probation, General Continuance", 
+                       type)) %>% 
+  filter(type != "NA" & type != "Other")
+
+# ignore the cases where some charges were dismissed and other charges were claimed guilty 
+
+# 174,890 rows 
+
+dispo_categories %>% 
+  unique() %>% 
+  
+# here we have 174,890 rows, but some cases are mentioned more than once because they have different disposition outcomes for different charges 
+  
+  select(case_number) %>% 
+  unique()
+
+# after unique() another time, we have 82,660 rows. This means that about 73% of cases have the same disposition outcome for all charges. 
+# this leads me to decide that I will count the disposition outcome for each charge instead of for each case 
+
+raw_type <- dispo_categories %>% 
+  ungroup() %>% 
+  filter(defendant_race %in% c("Black", "White")) %>% 
+  select(defendant_race, type) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  group_by(defendant_race, type) %>% 
+  tally()
+
+count_dispo <- raw_type %>% 
+  ungroup() %>% 
+  select(defendant_race, n) %>% 
+  group_by(defendant_race) %>% 
+  summarize(count = sum(n)) 
+
+join_count_dispo <- left_join(raw_type, count_dispo, 
+                              by = "defendant_race") %>% 
+  mutate(ratio = n/count) %>% 
+  mutate(ratio = round(ratio, 3)) 
+
+
+saveRDS(join_count_dispo, file = "shiny-app/data/join_count_dispo.rds") 
+
+# the number of counts here are smaller because we exclude counts whose disposition 
+# outcomes are "Other" and  "NA"
+
+join_count_dispo %>% 
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  scale_fill_brewer(palette = "Set1") + 
+  guides(fill = guide_legend(nrow = 2)) +
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  labs(title = "Types of Disposition Outcomes by Race",
+       subtitle = "All District Courts, Middlesex County, MA") +
+  ylim(0, 0.6) 
+
+join_count_dispo %>% 
+  ungroup() %>%
+  select(type, n) %>% 
+  mutate(type = as.factor(type)) %>% 
+  group_by(type) %>%
+  summarize(count = sum(n)) %>%
+  mutate(total = sum(count),
+         ratio = count/total) %>%
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") +
+  scale_fill_brewer(palette = "Set1") + 
+  guides(fill = guide_legend(nrow = 2)) +
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  ylim(0, 0.6) 
+
+```
+
+```{r adverse total}
+
+# adverse/non adverse outcome 
+
+join_adverse <- join_count_dispo %>% 
+  mutate(type = ifelse(type == "CWOF, Pre-trial Probation, General Continuance" | 
+                          type == "Guilty", "Adverse", "Non-adverse"))
+
+saveRDS(join_adverse, file = "shiny-app/data/join_adverse.rds") 
+
+join_adverse %>% 
+  mutate(type = as.factor(type)) %>%
+  group_by(defendant_race, type) %>% 
+  summarize(n = sum(n),
+            count = count,
+            ratio = sum(ratio)) %>% 
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  scale_fill_brewer(palette = "Set1") + 
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  labs(title = "Types of Disposition Outcomes by Race",
+       subtitle = "All District Courts, Middlesex County, MA") +
+  ylim(0, 1) 
+
+# without facet wrap 
+
+join_adverse %>% 
+  mutate(type = as.factor(type)) %>% 
+  group_by(type) %>% 
+  summarize(n = sum(n)) %>% 
+  mutate(ratio = n/sum(n)) %>% 
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") + 
+  scale_fill_brewer(palette = "Set1") + 
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  labs(title = "Types of Disposition Outcomes by Race",
+       subtitle = "All District Courts, Middlesex County, MA") +
+  ylim(0, 1) 
+
+```
+
+
+```{r disposition by court}
+
+# disposition by court 
+
+raw_type_district <- dispo_categories %>% 
+  filter(district_court == "Lowell District Court") %>% 
+  ungroup() %>% 
+  filter(defendant_race %in% c("Black", "White")) %>%
+  select(defendant_race, type) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  group_by(defendant_race, type) %>% 
+  tally()
+
+raw_type_district %>% 
+  ungroup() %>% 
+  select(defendant_race, n) %>% 
+  group_by(defendant_race) %>% 
+  summarize(count = sum(n)) %>% 
+  right_join(raw_type_district, by = "defendant_race") %>% 
+  mutate(ratio = n/count) %>% 
+  mutate(ratio = round(ratio, 3)) %>% 
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  scale_fill_brewer(palette = "Set1") + 
+  guides(fill = guide_legend(nrow = 2)) +
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width = 0.9), vjust = -0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  labs(title = "Types of Disposition Outcomes by Race",
+       subtitle = "Newton District Court") +
+  ylim(0, 0.6)
+
+
+
+```
+
+```{r sentence description}
+
+# sentence description analysis
+
+sentence <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) %>% 
+  select(case_number, court_location, defendant_race, 
+         sentence_description) 
+  
+
+sentence %>% 
+  unique() %>% 
+  ungroup() %>%
+  select(defendant_race, sentence_description) %>% 
+  filter(sentence_description == "House of Corrections",
+         defendant_race %in% c("Black", "White")) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  group_by(defendant_race, sentence_description) %>% 
+  drop_na() %>% 
+  tally()
+
+hoc_sentence <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) %>% 
+  filter(sentence_description == "House of Corrections",
+         defendant_race %in% c("Black", "White")) %>% 
+  select(case_number, court_location, charge_crime_type, defendant_race) %>% 
+  unique()
+
+offense_categories <- middlesex_2 %>%
+
+# filter to only district courts
+  
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) %>% 
+  filter(sentence_description == "House of Corrections",
+         defendant_race %in% c("Black", "White")) %>% 
+  separate(col = charge_crime_code, into = c("chapter", "code"), 
+           sep = "/", remove = FALSE) %>% 
+  mutate(offense = case_when(chapter == "90"|
+                             chapter == "90B"|
+                             chapter == "720CMR906" 
+                                 ~ "Motor Vehicle Offense", 
+                             chapter == "94C" ~ "Drug Offense", 
+                             chapter == "266" ~ "Property Offense",
+                             chapter == "265" & code != "13B" 
+                                 ~ "Personal Offense",
+                             chapter == "6" | 
+                             chapter == "265" & code == "13B" 
+                                 ~ "Sex Offense", 
+                             chapter == "269" ~ "Weapon Offense", 
+                             TRUE ~ "Other Offense")) 
+
+saveRDS(offense_categories, file = "shiny-app/data/offense_categories.rds") 
+
+  
+offense_total <- offense_categories %>% 
+  select(case_number, court_location, defendant_race, offense) %>% 
+  filter(defendant_race %in% c("Black", "White")) %>% 
+# be mindful that one case can have several offenses 
+  select(defendant_race, offense) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  group_by(defendant_race, offense) %>% 
+  tally()
+
+saveRDS(offense_total, file = "shiny-app/data/offense_total.rds")
+
+# offense type by race 
+
+offense_total %>% 
+  ungroup() %>% 
+  select(defendant_race, n) %>% 
+  group_by(defendant_race) %>% 
+  summarize(count = sum(n), .groups = "drop") %>% 
+  left_join(offense_total, by = "defendant_race") %>% 
+  mutate(ratio = n/count) %>% 
+  mutate(ratio = round(ratio, 3)) %>%
+  mutate(defendant_race = factor(defendant_race, 
+                                 levels = c("Black", "White"))) %>% 
+  ggplot(aes(x = fct_reorder(offense, ratio), y = ratio, fill = offense)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  guides(fill = guide_legend(nrow = 2)) +
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width = 0.9), 
+            vjust = 0.5, hjust = -0.1, size = 2.5) +
+  scale_fill_hue(c = 40) +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank()) + 
+  labs(title = "Offense types by Race",
+       subtitle = "All District Courts, Middlesex, MA") +
+  ylim(0, 1) + 
+  coord_flip()
+
+```
+
+```{r sentence by district court}
+
+# sentence by district court analysis 
+
+offense_district <- offense_categories %>% 
+  select(case_number, court_location, defendant_race, offense) %>% 
+  filter(defendant_race %in% c("Black", "White")) %>% 
+  filter(court_location == "NEW") %>% 
+  
+# be mindful that one case can have several offenses 
+  
+  select(defendant_race, offense) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  group_by(defendant_race, offense) %>% 
+  tally()
+
+# offense type by race by district court 
+
+offense_district %>% 
+  ungroup() %>% 
+  select(defendant_race, n) %>% 
+  group_by(defendant_race) %>% 
+  summarize(count = sum(n), .groups = "drop") %>% 
+  left_join(offense_district, by = "defendant_race") %>% 
+  mutate(ratio = n/count) %>% 
+  mutate(ratio = round(ratio, 3)) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  mutate(defendant_race = factor(defendant_race, 
+                                 levels = c("Black", "White"))) %>% 
+  mutate(offense = as.factor(offense)) %>% 
+  ggplot(aes(x = fct_reorder(offense, ratio), y = ratio, fill = offense)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width = 0.9), 
+            vjust = 0.5, hjust = -0.1, size = 2.5) +
+  scale_fill_hue(c = 40) +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank()) + 
+  labs(title = "Offense types by Race",
+       subtitle = "By district court, Middlesex, MA") +
+  ylim(0, 1) +
+  coord_flip()
+
+
+```
+
+```{r charge description DTP}
+
+# list of charge identified by ACLU 
+# as being included on the “Decline to Prosecute” list
+
+decline_prosecute <- c("266/16A", "94/32A/C", "94C/32G",
+                       "266/127", "272/53", "94C/32D/A", "94C/32A/A",
+                       "94C/34", "94C/32A/B", "94C/32B/A", "94C/32B/B", 
+                       "94C/32D/B", "94C/35",
+                       "226/30/1", "90/23", "90/3", "90/2B",
+                       "90/11", "540CMR205", "540CMR224", "90/23",
+                       "268/32B", "266/30A", "266/120")
+
+# without the drug possession charge 
+
+decline_prosecute_2 <- c("266/16A", "94C/32G",
+                       "266/127", "272/53", "94C/32D/A", "94C/32A/A",
+                       "226/30/1", "90/23", "90/3", "90/2B",
+                       "90/11", "540CMR205", "540CMR224", "90/23",
+                       "268/32B", "266/30A", "266/120")
+
+pat <-  paste0("^(", paste(decline_prosecute_2, collapse = "|"), ")")
+
+# filter to Middlesex 
+
+decline_middlesex <- middlesex_2 %>%
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  filter(str_detect(charge_crime_code, pat)) %>%
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) 
+
+saveRDS(decline_middlesex, file = "shiny-app/data/decline_middlesex.rds")
+
+ratio_case_total <- decline_middlesex %>% 
+  select(case_number, defendant_race) %>% 
+  
+# number of cases in which at least one of those charges 
+# were mentioned at least once 
+  
+  unique() %>% 
+  group_by(defendant_race) %>% 
+  tally %>% 
+  mutate(sum = sum(n)) %>% 
+  mutate(ratio = n/sum) %>% 
+  mutate(ratio = round(ratio, 3))
+
+# raicial disparities table 
+
+ratio_case_total %>% 
+  inner_join(pop_race_total %>% 
+               mutate(defendant_race = race) %>% 
+               select(defendant_race, sum), by = "defendant_race") %>% 
+  rename(count = sum.x, race_pop = sum.y) %>% 
+  select(-ratio) %>% 
+  mutate(per_capita = (n/race_pop)*100000) %>%
+  mutate(ratio_race = per_capita[]/per_capita[3]) %>% 
+  mutate(ratio_race = round(ratio_race, 2))
+
+saveRDS(ratio_case_total, file = "shiny-app/data/ratio_case_total.rds")
+
+```
+
+
+```{r disposition DTP}
+
+decline_adverse_join <- left_join(decline_middlesex, 
+          dispo_categories %>% 
+            select(case_number, type), 
+          by = "case_number") %>% 
+  mutate(type = ifelse(type == "CWOF, Pre-trial Probation, General Continuance" | 
+                          type == "Guilty", "Adverse", "Non-adverse"))
+
+saveRDS(decline_adverse_join, file = "shiny-app/data/decline_adverse_join.rds")
+
+decline_a <- decline_adverse_join %>% 
+  select(case_number, defendant_race, type) %>% 
+  filter(defendant_race %in% c("Black", "White")) %>% 
+  group_by(defendant_race, type) %>% 
+  tally() %>% 
+  drop_na() 
+
+saveRDS(decline_a, file = "shiny-app/data/decline_a.rds")
+
+# Disposition Outcomes for DPT Charges 
+
+decline_a %>% 
+  ungroup() %>%
+  group_by(defendant_race) %>% 
+  summarize(sum = sum(n)) %>% 
+  right_join(decline_a, by = "defendant_race") %>% 
+  select(defendant_race, type, n, sum) %>% 
+  mutate(ratio = n/sum) %>% 
+  mutate(ratio = round(ratio, 3)) %>% 
+  mutate(type = as.factor(type)) %>% 
+  ggplot(aes(x = type, y = ratio, fill = type)) + 
+  geom_col(position = "dodge") +
+  facet_wrap(~defendant_race) + 
+  scale_fill_brewer(palette = "Set1") + 
+  geom_text(aes(label = percent(ratio), y = ratio), 
+            position=position_dodge(width=0.9), vjust=-0.25, size = 3) +
+  theme(legend.position = "bottom",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_blank()) +
+  labs(title = "Disposition Outcomes for DPT Charges",
+       subtitle = "All District Courts, Middlesex County, MA") +
+  ylim(0, 1) 
+
+```
+
+
+```{r DPT charge by type}
+        
+trespass <- c("266/120")
+shoplifting <- c("266/30A")
+disorderly_conduct <- c("272/53")
+driving_offense <- c("90/3", "90/2B",
+                      "90/11", "540CMR205", "540CMR224", "90/23")
+breaking_n_entering <- c("266/16A")
+larceny_under_250 <- c("226/30/1")
+drug_possession <- c("94/32A/C", "94C/34", "94C/32A/B", "94C/32B/A", "94C/32B/B", "94C/35")
+drug_possession_with_intent <- c("94C/32G", "94C/32D/A", "94C/32A/A")
+destruction_under_250 <- c("266/127")
+resisting_arrest <- c("268/32B")
+
+
+# by type
+
+pat_1 <-  paste0("^(", paste(drug_possession, collapse = "|"), ")")
+
+# filter to Middlesex 
+
+middlesex_3 <- middlesex_2 %>%
+    filter(!court_location %in% c("CAMJU", "FRAJU", "LOWJU", "WALJU",
+                                  "LSUP", "MSUP", 
+                                  "NA", "OTH")) %>% 
+  mutate(defendant_race = case_when(defendant_race == "W" & defendant_ethnicity != "HL" ~ "White",
+                          defendant_race == "B" ~ "Black",
+                          defendant_race == "H" | defendant_ethnicity == "HL" ~ "Hispanic",
+                          defendant_race = any(is.na(defendant_race)) ~ "NA",
+                          defendant_race == "U" | defendant_race == "O" ~ "Unknown",
+                          TRUE ~ "Other")) 
+
+saveRDS(middlesex_3, file = "shiny-app/data/middlesex_3.rds")
+
+
+ratio_case <- middlesex_3 %>% 
+  filter(str_detect(charge_crime_code, pat_1)) %>% 
+  select(case_number, defendant_race) %>% 
+  
+# number of cases in which at least one of those charges 
+# were mentioned at least once 
+  unique() %>% 
+  group_by(defendant_race) %>% 
+  tally %>% 
+  mutate(sum = sum(n)) %>% 
+  mutate(ratio = n/sum) %>% 
+  mutate(ratio = round(ratio, 3))
+
+ratio_case %>% 
+  inner_join(pop_race_total %>% 
+               mutate(defendant_race = race) %>% 
+               select(defendant_race, sum), by = "defendant_race") %>% 
+  rename(count = sum.x, race_pop = sum.y) %>% 
+  select(-ratio) %>% 
+  mutate(per_capita = (n/race_pop)*100000) %>%
+  mutate(ratio_race = per_capita[]/per_capita[3]) %>% 
+  mutate(ratio_race = round(ratio_race, 2),
+         per_capita = round(per_capita)) %>% 
+  rename(charges_by_race = n,
+         racial_population = race_pop,
+         ratio_to_white_persons = ratio_race) %>%
+  select(-count, -racial_population) %>% 
+  gt() %>% 
+  tab_header(title = "DPT Charges, by Race") %>% 
+  cols_label(defendant_race = "Race",
+             charges_by_race = "Charges", 
+               per_capita = "Per Capita",
+             ratio_to_white_persons = "Ratio to White Persons")
+  
+# buidl a function get_table to 
+# repeat the process for 9 charge types 
+
+get_table <- function(x = trespass){
+  
+trespass <- c("266/120")
+shoplifting <- c("266/30A")
+disorderly_conduct <- c("272/53")
+driving_offense <- c("90/3", "90/2B",
+                      "90/11", "540CMR205", "540CMR224", "90/23")
+breaking_n_entering <- c("266/16A")
+larceny_under_250 <- c("226/30/1")
+drug_possession <- c("94/32A/C", "94C/34", "94C/32A/B", "94C/32B/A", "94C/32B/B", "94C/35")
+drug_possession_with_intent <- c("94C/32G", "94C/32D/A", "94C/32A/A")
+destruction_under_250 <- c("266/127")
+resisting_arrest <- c("268/32B")
+
+  ratio_case <- middlesex_3 %>% 
+  filter(str_detect(charge_crime_code, 
+                    paste0("^(", paste(x, collapse = "|"), ")"))) %>% 
+  select(case_number, defendant_race) %>% 
+  unique() %>% 
+  group_by(defendant_race) %>% 
+  tally %>% 
+  mutate(sum = sum(n)) %>% 
+  mutate(ratio = n/sum) %>% 
+  mutate(ratio = round(ratio, 3))
+
+ratio_case %>% 
+  inner_join(pop_race_total %>% 
+               mutate(defendant_race = race) %>% 
+               select(defendant_race, sum), by = "defendant_race") %>% 
+  rename(count = sum.x, race_pop = sum.y) %>% 
+  select(-ratio) %>% 
+  mutate(per_capita = (n/race_pop)*100000) %>%
+  mutate(ratio_race = per_capita[]/per_capita[3]) %>% 
+  mutate(ratio_race = round(ratio_race, 2),
+         per_capita = round(per_capita)) %>% 
+  rename(charges_by_race = n,
+         racial_population = race_pop,
+         ratio_to_white_persons = ratio_race) %>%
+  select(-count, -racial_population)
+
+}
+
+# using my function for 9 charge types 
+
+trespass <- get_table(trespass) %>% 
+  mutate(type = "trespassing")
+
+shoplifting <- get_table(shoplifting) %>% 
+  mutate(type = "shoplifting")
+
+disorderly_conduct <- get_table(disorderly_conduct) %>% 
+  mutate(type = "disorderly conduct")
+
+driving_offense <- get_table(driving_offense) %>% 
+  mutate(type = "driving offense")
+
+breaking_n_entering <- get_table(breaking_n_entering) %>% 
+  mutate(type = "breaking and entering")
+
+larceny_under_250 <- get_table(larceny_under_250) %>% 
+  mutate(type = "larceny under 250")
+
+drug_possession_with_intent <- get_table(drug_possession_with_intent) %>% 
+  mutate(type = "drug possession with intent")
+
+destruction_under_250 <- get_table(destruction_under_250) %>% 
+  mutate(type = "destruction under 250")
+
+resisting_arrest <- get_table(resisting_arrest) %>% 
+  mutate(type = "resisting arrest")
+
+# bind rows for all tables 
+
+ratio_table <- rbind(trespass, shoplifting, disorderly_conduct, driving_offense, breaking_n_entering,
+      larceny_under_250, drug_possession_with_intent, destruction_under_250,
+      resisting_arrest) %>% 
+  rename(race = defendant_race,
+         charges = charges_by_race) %>%
+  select(type, race, charges, per_capita, ratio_to_white_persons) %>%
+  mutate(type = as.factor(type))
+
+saveRDS(ratio_table, file = "shiny-app/data/ratio_table.rds")
+
+```
+
+```{r model}
+
+# model 
+
+# data interested in DTP data
+
+model_data <- decline_adverse_join %>% 
+  filter(defendant_race %in% c("Black", "White")) %>% 
+  mutate(type_binary = ifelse(type == "Adverse", 1, 0)) %>% 
+  mutate(defendant_race = as.factor(defendant_race)) %>% 
+  mutate(court_location = as.factor(court_location)) %>% 
+  
+# set intercept beta value
+  
+  mutate(court_location = fct_relevel(court_location, "AYE")) %>% 
+  mutate(defendant_race = fct_relevel(defendant_race, "White")) 
+
+# regression model 
+
+model_1 <- stan_glm(data = model_data, 
+         refresh = 0,
+         formula = criminal_count_number ~ court_location + defendant_race 
+         + court_location:defendant_race)
+
+# interaction terms because
+# there is something unique in being black in different courts
+
+saveRDS(model_1, file = "shiny-app/data/model_1.rds")
+
+
+# statistics summary of model 1 
+
+tbl_regression(model_1, intercept = TRUE) %>%
+
+# use as_gt() to create a pretty table
+
+  as_gt() %>%
+tab_header(title = "Regression of Charges Filed",
+subtitle = "The Effect of Race and Individual Courts on the number of Charges filed") %>%
+tab_source_note("Source: Prosecution Data and Statistics, MCDAO")
+
+# model 1 graph 
+
+model_1 %>%
+  as_tibble() %>% 
+  mutate(court_locationLOW = `(Intercept)` + court_locationLOW + defendant_raceBlack + `court_locationLOW:defendant_raceBlack`) %>% 
+  mutate(court_locationCAM = `(Intercept)` + court_locationCAM + defendant_raceBlack + `court_locationCAM:defendant_raceBlack`) %>% 
+  select(court_locationLOW, court_locationCAM) %>% 
+  pivot_longer(cols = court_locationLOW:court_locationCAM, 
+               names_to = "Parameter",
+               values_to = "values") %>% 
+  ggplot(aes(values, fill = Parameter)) +
+    geom_histogram(aes(y = after_stat(count/sum(count))),
+                   alpha = 0.5, 
+                   bins = 100, 
+                   position = "identity") +
+    labs(title = "Posterior Probability Distribution",
+         subtitle = "For Black defendants in 2 different district courts",
+         x = "Expected criminal counts",
+         y = "Probability") + 
+    scale_x_continuous(labels = scales::number_format()) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    theme_classic()
+
+model_1_tibble <- model_1 %>% as_tibble()
+
+View(model_1_tibble
+     )
+
+saveRDS(model_1_tibble, file = "shiny-app/data/model_1_tibble.rds")
+
+```
+
