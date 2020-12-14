@@ -53,7 +53,7 @@ tabPanel("Introduction",
          impact community’s well-being and (2) belonged to historically disadvantaged 
          minority groups, it is the obligation of prosecutors, judges, and everyone 
          else in the community to study and assess prosecutorial decisions and their 
-         consequences so as to improve societal safety and wellbeing."),
+         consequences to improve fairness and social wellbeing."),
          br(),
          withSpinner(imageOutput("prosecutor", width = "100%", height = "100%")),
          p(em("\"Criminal Justice - The Kings of the Courtroom\". Source: The Economist"
@@ -76,27 +76,29 @@ tabPanel("Introduction",
 ############## SECOND PAGE ##############   
 
    tabPanel("Summary",
-            fluidRow(column(2), 
-                     column(8,
-            br(),
-            h3("Objective"),
-            br(),
-            p("This project examines the efficacy and racial disparities in prosecution
+         tabsetPanel(
+            tabPanel("Report Summary",
+                     fluidRow(column(2), 
+                              column(8,
+                                     br(),
+                                     h3("Objective"),
+                                     br(),
+                                     p("This project examines the efficacy and racial disparities in prosecution
             in the 2014-2019", a("dataset", 
-            href = "https://www.middlesexda.com/public-information/pages/prosecution-data-and-statistics"), 
-            "that was made publicly accessible by the District 
+                                 href = "https://www.middlesexda.com/public-information/pages/prosecution-data-and-statistics"), 
+                                 "that was made publicly accessible by the District 
             Attorney’s Office in Middlesex County, MA."),
-            h3("Methodology and Analysis"),
-            br(),
-            p("First, I examine the", tags$b("demographics"), "to have some
+                                 h3("Methodology and Analysis"),
+                                 br(),
+                                 p("First, I examine the", tags$b("demographics"), "to have some
             context of where the data is coming from. Given that Middlesex 
             is a predominantly white (75%), relatively wealthy neighborhood (median 
             income of ~ $97,000), I expect that the prosecution findings for Middlesex 
             County might not be representative of the country and cannot be easily
             generalized to other regions with different backgrounds in the US."),
-            br(),
-            br(),
-            p("Then I move on to look at", tags$b("caseload management"), "with a focus on district 
+                                 br(),
+                                 br(),
+                                 p("Then I move on to look at", tags$b("caseload management"), "with a focus on district 
             courts - where more than 90% of cases happened and got resolved. Specifically, 
             I look at the total number of cases that got resolved in the past 5 years 
             for each district court relative to its population served, the number of 
@@ -110,11 +112,11 @@ tabPanel("Introduction",
             reassess the costs and benefits of prosecuting certain charges against persons 
             at the court, taking into account the tradeoff between court efficiency and 
             caseload."),
-            br(),
-            
+                                 br(),
+                                 
 # tag$b for bolded texts within paragraphs
-
-            p("Third, I take a closer look at", tags$b("racial disparities"), "in the amount of cases 
+                                 
+                                 p("Third, I take a closer look at", tags$b("racial disparities"), "in the amount of cases 
             brought to court, types of charges, disposition outcomes, and sentence 
             descriptions by race, with a focus on Black and White people. 
             Due to the pre-existing disparities in racial population, the raw numbers 
@@ -123,7 +125,7 @@ tabPanel("Introduction",
             a much higher likelihood for Black people to be charged and brought to 
             courts than White people, increasing racial inequality and inducing negative 
             racial impact on Black communities."),
-            p("This prompts me to take a closer look at the 9 misdemeanor/low-offense 
+                                 p("This prompts me to take a closer look at the 9 misdemeanor/low-offense 
             felony charge types identified by the American Civil Liberties Union (ACLU) 
             and other legal scholars as disproportionately affecting Black people, 
             remarkable among which are drug distribution with intent, resisting arrest, 
@@ -132,7 +134,7 @@ tabPanel("Introduction",
             neutral prosecutorial decisions, there is a large negative racial impact 
             because Black people were 4 to 9 times more likely than White people to 
             be prosecuted for what ACLU called “superfluous charges"),
-            p("As for the sentence descriptions, I was able to categorize the offenses 
+                                 p("As for the sentence descriptions, I was able to categorize the offenses 
             that lead persons to serve their sentences in the House of Corrections and 
             look at the percentages for each offense type by race, using the methodology 
             in the recent Harvard Law School’s report on Racial Disparities in 
@@ -140,38 +142,68 @@ tabPanel("Introduction",
             and my inability to get a reply from the data owner for more details on 
             sentence length, I was not able to move further in my analysis and interpretation 
             of racial disparities in sentencing."),
-            br(),
-            p("All of my findings lead me to 2 concluding points."), 
-            p("First, given the limited court capacity, low prosecution efficacy, 
+                                 br(),
+                                 p("All of my findings lead me to 2 concluding points."), 
+                                 p("First, given the limited court capacity, low prosecution efficacy, 
             and the burden of financial and psychological costs of prosecution for 
             everyone involved - especially historically-disadvantaged minorities, 
             it would be beneficial for the community as a whole if prosecutors choose 
             to reexamine their practices and choose a minimal approach to prosecution. 
             The list of \"Decline To Prosecute\" proposed by the ACLU and endorsed by the DA 
             at Suffolk County, MA can be a good start."),
-            p("Second, the DA Office in 
+                                 p("Second, the DA Office in 
             realizing their stated commitment to transparency needs to improve the 
             accuracy and consistency in their data records. There are also inconsistencies
             in recording the dates of filing/offense/disposition (e.g. disposition date 
             happened before offense date, or cases that dated back to as old as 1986 for 
             “breaking and entering” offense which got filed in 2014 - this extraordinary 
             duration made me assumed is due to inaccurate reporting)"),
-            br(),
-            br(),
-            h3("References"),
-            p("Hall, R. & Eledroos, N.(2018),",
-              em("Facts Over Fear - The benefits of declining to prosecute misdemeanor 
+                                 br(),
+                                 br()))
+       ),
+            tabPanel("Data Limitations",
+                     br(),
+                     br(),
+                     fluidRow(column(2),
+                              column(8,
+                           h3("Data Limitations"),
+                           br(),
+                           p("1. This data only covers the cases that were prosecuted to a 
+                           disposition. The number of offenses might not reflect the offenses 
+                           that actually happened but rather the offenses that happened and got 
+                           prosecuted. I might not be capturing the racial disparity at all if 
+                           there’s a low rate of prosecution for white people. The question that
+                           every prosecutor faces,  “Should I prosecute this person?”, is left
+                           uninvestigated."),
+                           p("2. Data inaccuracies in the original dataset lead to the elimination
+                           of one-third (~ 33%) of total observations."),
+                           p("3. It is unclear how race and ethnicity is reported.
+                           Data on race and ethnicity are missing for about 10% of total 
+                           qualified observations."),
+                           p("There is no information on a person’s residence, his socioeconomic
+                           status, and the length of sentence recommendations"))
+         )),
+         tabPanel("References",
+                  br(),
+                  br(),
+                  fluidRow(column(2),
+                           column(8,
+                           h3("References"),
+                           br(),
+                                  p("Hall, R. & Eledroos, N.(2018),",
+                                    em("Facts Over Fear - The benefits of declining to prosecute misdemeanor 
               and low-level felony offenses."), "American Civil Liberties Union.", 
-              href = "https://www.aclum.org/en/news/facts-over-fear-benefits-declining-prosecute-misdemeanor-low-level-felonies"),
-            p("Bishop, E., Hopkins, B., Obiofuma, C., Owusu, F.(2020)",
-              em("Racial Disparities in the Massachusetts Criminal System."),
-              "The Criminal Justice Policy Program, Harvard Law School.",
-            href = "https://hls.harvard.edu/content/uploads/2020/11/Massachusetts-Racial-Disparity-Report-FINAL.pdf"),
-            p("Davis, A. (2013)", 
-              em("In Search of Racial Justice: The Role of the Prosecutor."), 
-              "Articles in Law Reviews & Other Academic Journals. 1401.", 
-              href = "https://digitalcommons.wcl.american.edu/facsch_lawrev/1401")
-        ))),
+                                    href = "https://www.aclum.org/en/news/facts-over-fear-benefits-declining-prosecute-misdemeanor-low-level-felonies"),
+                                  p("Bishop, E., Hopkins, B., Obiofuma, C., Owusu, F.(2020)",
+                                    em("Racial Disparities in the Massachusetts Criminal System."),
+                                    "The Criminal Justice Policy Program, Harvard Law School.",
+                                    href = "https://hls.harvard.edu/content/uploads/2020/11/Massachusetts-Racial-Disparity-Report-FINAL.pdf"),
+                                  p("Davis, A. (2013)", 
+                                    em("In Search of Racial Justice: The Role of the Prosecutor."), 
+                                    "Articles in Law Reviews & Other Academic Journals. 1401.", 
+                                    href = "https://digitalcommons.wcl.american.edu/facsch_lawrev/1401")
+                           )))
+         )),
 
 ############## THIRD PAGE ##############   
 
@@ -552,7 +584,7 @@ tabPanel("Introduction",
                          Attorney's Office use for district courts' names"),
                        br(),
                        p(em("Table 5: Codes for District Courts Name from MCDAO official website",
-                            align = "center")),
+                            ), align = "center"),
                        imageOutput("court_abbreviation", width = "100%", height = "100%"),
                        br(),
                        p(em("Table 6: Regression Summary Statistics"), align = "center"),
@@ -560,7 +592,8 @@ tabPanel("Introduction",
                        br(),
                        p("The sum of the intercept beta value and the beta value for court location 
                        is the predicted average number of charges filed for White people in a given 
-                       court. The beta value of the interaction term represents the change in charges
+                       court. The beta value of the interaction term represents the change in the number of
+                       charges
                        being brought against given a person's racial identity at one court versus another. 
                        However, 
                        if we add the beta values for the given district court location, the defendant's 
@@ -574,22 +607,22 @@ tabPanel("Introduction",
                        is the posterior distribution for the number of charges black people receive in
                        Cambridge and Lowell District Courts"),
                        br(),
+                       p(em("Figure 13: Posterior Distributions for the charges Black people receive in
+                            Cambridge and Lowell district courts"), align = "center"),
                        fluidRow(column(2),
                                 column(8, 
                                        plotOutput("posterior_1"))),
                        br(),
-                       p("The posterior above shows that Black defendants who were charged with at least one 
-                       DTP offense receive are more likely to have more charges filed against them in Lowell 
-                       District Court as opposed to Cambridge District Court. Black people, as this posterior
-                       shows,  experience different legal outcomes regarding the number of charges that 
-                       prosecutors decide to bring against them in different courts."),
+                       p("As we can see from the spread of the distribution, there is much uncertainty 
+                       about the prediction. The two distributions also mostly overlap with each other, 
+                       meaning the difference that exists between the two courts is minor."),
                        br(),
                        p("Figure 13 displays an interactive plot where we can choose two of any district 
                        courts to compare the probability that Black people will have a certain number of charges 
                        filed when their cases are served in one court versus 
                        another."),
                        br(),
-                       p(em("Figure 13: Comparing the Posterior Distributions for the charges Black people receive in
+                       p(em("Figure 14: Comparing the Posterior Distributions for the charges Black people receive in
                             two district courts"), align = "center"),
                        br(),
                        sidebarLayout(sidebarPanel(
@@ -657,7 +690,7 @@ tabPanel("Introduction",
                             p("You can find my Github repository", a("here", 
                                                                      href = "https://github.com/anhton99/court-data")))
                      ))
-   
+
 
 ))
      

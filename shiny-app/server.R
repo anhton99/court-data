@@ -363,6 +363,7 @@ shinyServer(function(input, output){
     
   })
   
+  
   output$offense <- renderPlot({
     
     offense_total %>% 
@@ -421,35 +422,10 @@ shinyServer(function(input, output){
   
   output$posterior_1 <- renderPlot({
     
-    model_1 %>%
-      as_tibble() %>% 
-      mutate(court_locationLOW = `(Intercept)` + court_locationLOW + defendant_raceBlack + `court_locationLOW:defendant_raceBlack`) %>% 
-      mutate(court_locationCAM = `(Intercept)` + court_locationCAM + defendant_raceBlack + `court_locationCAM:defendant_raceBlack`) %>% 
-      select(court_locationLOW, court_locationCAM) %>% 
-      pivot_longer(cols = court_locationLOW:court_locationCAM, 
-                   names_to = "Parameter",
-                   values_to = "values") %>% 
-      ggplot(aes(values, fill = Parameter)) +
-      geom_histogram(aes(y = after_stat(count/sum(count))),
-                     alpha = 0.5, 
-                     bins = 100, 
-                     position = "identity") +
-      labs(title = "Posterior Probability Distribution",
-           subtitle = "For Black defendants in 2 different district courts",
-           x = "Expected criminal counts",
-           y = "Probability") + 
-      scale_x_continuous(labels = scales::number_format()) +
-      scale_y_continuous(labels = scales::percent_format()) +
-      theme_classic()
-    
-    
-  })
-  
-  output$posterior_2 <- renderPlot({
-    
-    new_obs <- tibble(court_location = c(input$variable, input$variable_2),
+    new_obs <- tibble(court_location = c("CAM", "LOW"),
                       defendant_race = "Black")
     
+    set.seed(10)
     posterior_predict(model_1, newdata = new_obs) %>% 
       as_tibble() %>% 
       pivot_longer(cols = 1:2, 
@@ -466,6 +442,41 @@ shinyServer(function(input, output){
            y = "Probability") + 
       scale_x_continuous(labels = scales::number_format()) +
       scale_y_continuous(labels = scales::percent_format()) +
+      scale_fill_manual(name = "Posterior value",
+                        labels = c("CAM", "LOW"),
+                        values = c("dodgerblue", "salmon"),
+                        breaks = c("1", "2")) +
+      theme_classic()
+    
+    
+  })
+  
+  output$posterior_2 <- renderPlot({
+    
+    new_obs <- tibble(court_location = c(input$variable, input$variable_2),
+                      defendant_race = "Black")
+    
+    set.seed(10)
+    posterior_predict(model_1, newdata = new_obs) %>% 
+      as_tibble() %>% 
+      pivot_longer(cols = 1:2, 
+                   names_to = "Parameter",
+                   values_to = "values") %>% 
+      ggplot(aes(values, fill = Parameter)) +
+      geom_histogram(aes(y = after_stat(count/sum(count))),
+                     alpha = 0.5, 
+                     bins = 100, 
+                     position = "identity") +
+      labs(title = "Posterior Probability Distribution",
+           subtitle = "For Black defendants in 2 different district courts",
+           x = "Expected criminal counts",
+           y = "Probability") + 
+      scale_x_continuous(labels = scales::number_format()) +
+      scale_y_continuous(labels = scales::percent_format()) +
+      scale_fill_manual(name = "Posterior value",
+                        labels = c("1st choice court", "2nd choice court"),
+                        values = c("dodgerblue", "salmon"),
+                        breaks = c("1", "2")) +
       theme_classic()
     
     

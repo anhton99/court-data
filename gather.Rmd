@@ -1454,33 +1454,34 @@ tab_header(title = "Regression of Charges Filed",
 subtitle = "The Effect of Race and Individual Courts on the number of Charges filed") %>%
 tab_source_note("Source: Prosecution Data and Statistics, MCDAO")
 
-# model 1 graph 
+# model 1 graph
 
-model_1 %>%
-  as_tibble() %>% 
-  mutate(court_locationLOW = `(Intercept)` + court_locationLOW + defendant_raceBlack + `court_locationLOW:defendant_raceBlack`) %>% 
-  mutate(court_locationCAM = `(Intercept)` + court_locationCAM + defendant_raceBlack + `court_locationCAM:defendant_raceBlack`) %>% 
-  select(court_locationLOW, court_locationCAM) %>% 
-  pivot_longer(cols = court_locationLOW:court_locationCAM, 
-               names_to = "Parameter",
-               values_to = "values") %>% 
-  ggplot(aes(values, fill = Parameter)) +
-    geom_histogram(aes(y = after_stat(count/sum(count))),
-                   alpha = 0.5, 
-                   bins = 100, 
-                   position = "identity") +
-    labs(title = "Posterior Probability Distribution",
-         subtitle = "For Black defendants in 2 different district courts",
-         x = "Expected criminal counts",
-         y = "Probability") + 
-    scale_x_continuous(labels = scales::number_format()) +
-    scale_y_continuous(labels = scales::percent_format()) +
-    theme_classic()
+new_obs <- tibble(court_location = c("CAM", "LOW"),
+                      defendant_race = "Black")
 
-model_1_tibble <- model_1 %>% as_tibble()
+# posterior predict to forecast for individuals 
 
-View(model_1_tibble
-     )
+    posterior_predict(model_1, newdata = new_obs) %>% 
+      as_tibble() %>% 
+      pivot_longer(cols = 1:2, 
+                   names_to = "Parameter",
+                   values_to = "values") %>% 
+      ggplot(aes(values, fill = Parameter)) +
+      geom_histogram(aes(y = after_stat(count/sum(count))),
+                     alpha = 0.5, 
+                     bins = 100, 
+                     position = "identity") +
+      labs(title = "Posterior Probability Distribution",
+           subtitle = "For Black defendants in 2 different district courts",
+           x = "Expected criminal counts",
+           y = "Probability") + 
+      scale_x_continuous(labels = scales::number_format()) +
+      scale_y_continuous(labels = scales::percent_format()) +
+      scale_fill_manual(name = "Posterior value",
+                        labels = c("1st choice court", "2nd choice court"),
+                        values = c("dodgerblue", "salmon"),
+                        breaks = c("1", "2")) +
+      theme_classic()
 
 saveRDS(model_1_tibble, file = "shiny-app/data/model_1_tibble.rds")
 
