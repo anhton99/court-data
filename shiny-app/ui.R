@@ -38,6 +38,9 @@ tabPanel("Introduction",
 
          fluidRow(column(2), 
                   column(8,
+                         
+# align = "center" to put sentences in the center 
+
                 h2("Understanding the Efficacy and Racial Disparities 
                    in Prosecution", align = "center"),
                 p(em("Middlesex County, Massachusetts"), align = "center"),
@@ -55,6 +58,9 @@ tabPanel("Introduction",
          else in the community to study and assess prosecutorial decisions and their 
          consequences to improve fairness and social wellbeing."),
          br(),
+
+# withSpinner for aesthetics pending signal 
+
          withSpinner(imageOutput("prosecutor", width = "100%", height = "100%")),
          p(em("\"Criminal Justice - The Kings of the Courtroom\". Source: The Economist"
          ), align = "center"),
@@ -83,6 +89,9 @@ tabPanel("Introduction",
                                      br(),
                                      h3("Objective"),
                                      br(),
+                                     
+# a("", href = "www") => This is to embed a link 
+# in a word/phrase
                                      p("This project examines the efficacy and racial disparities in prosecution
             in the 2014-2019", a("dataset", 
                                  href = "https://www.middlesexda.com/public-information/pages/prosecution-data-and-statistics"), 
@@ -98,6 +107,10 @@ tabPanel("Introduction",
             generalized to other regions with different backgrounds in the US."),
                                  br(),
                                  br(),
+
+# tags$b within p() to bold a certain phrase 
+# add "," to separate tags$b
+
                                  p("Then I move on to look at", tags$b("caseload management"), "with a focus on district 
             courts - where more than 90% of cases happened and got resolved. Specifically, 
             I look at the total number of cases that got resolved in the past 5 years 
@@ -254,6 +267,11 @@ tabPanel("Introduction",
                     later."),
                 p(em("Figure 2: Median Household Income Distribution 
                      in Middlesex County, MA")),
+
+# instead of loading census and code onto Shiny
+# can just save map images and use imageOutput to save time 
+# this is not the case for leaflet 
+
                 imageOutput("middlesex_income_2")
                     )
                     )
@@ -284,6 +302,7 @@ tabPanel("Introduction",
                        br(),
 
 # split lay out to 70% and 30% 
+# 70% for first plot, 30% for second plot
 
                        splitLayout(cellWidths = c("70%", "30%"),
                                    p(em("Figure 3: Total cases in District Courts")),
@@ -311,6 +330,9 @@ tabPanel("Introduction",
               population of its assigned cities."),
                        p(em("Table 2: Summary of cases as % total population"), 
                          align = "center"),
+
+# gt_output() for loading gt tables 
+
                        gt_output(outputId = "sum_count"),
                        br(),
                        p("Figure 5 shows the total number of cases and the total population 
@@ -347,10 +369,13 @@ tabPanel("Introduction",
                         p(em("Figure 7: Moving through the system")),
             
 # Interactive layout - choose courts 
-
                         sidebarLayout(sidebarPanel(
                                 selectInput("district_court",
                                             label = "Choose a District Court:",
+                                            
+# choices input: c("what will appear on Shiny" = 
+# "what is in the data table")
+
                                             choices = c("Ayer District Court",
                                                         "Cambridge District Court",
                                                         "Concord District Court",
@@ -626,6 +651,9 @@ tabPanel("Introduction",
                             two district courts"), align = "center"),
                        br(),
                        sidebarLayout(sidebarPanel(
+                          
+# two selectInput(s), varInput didn't work
+# use selectInput instead 
                           selectInput("variable", 
                                          label = "Choose the first court:",
                                          choices = c(

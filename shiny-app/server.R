@@ -453,6 +453,8 @@ shinyServer(function(input, output){
   
   output$posterior_2 <- renderPlot({
     
+    # add input$variable within the data frame new_obs
+    
     new_obs <- tibble(court_location = c(input$variable, input$variable_2),
                       defendant_race = "Black")
     
