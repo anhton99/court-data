@@ -1,6 +1,6 @@
 # Understanding the Efficacy and Racial Disparities in Prosecution
 
-## About Our Data 
+## About the Project 
 This project examines the efficacy and racial disparities in prosecution in the 2014-2019 <a href="https://www.middlesexda.com/public-information/pages/prosecution-data-and-statistics">dataset</a> that was made publicly accessible by the District Attorney’s Office in Middlesex County, MA.
 
 I also consult other sources for information on specialized terms and definitions, as well as the role and impact that prosecutors have in the criminal justice system in Massachusetts in particular and in the US in general. For details on references, scroll down to see the `references` section below. 
