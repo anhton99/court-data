@@ -1,5 +1,9 @@
 # Understanding the Efficacy and Racial Disparities in Prosecution
 
+## How to see the Project
+Please visit https://anhton99.shinyapps.io/shiny-app/
+### Please do allow 40 seconds - 60 seconds for the app to appear. It will surely appear :) 
+
 ## About the Project 
 This project examines the efficacy and racial disparities in prosecution in the 2014-2019 <a href="https://www.middlesexda.com/public-information/pages/prosecution-data-and-statistics">dataset</a> that was made publicly accessible by the District Attorney’s Office in Middlesex County, MA.
 
